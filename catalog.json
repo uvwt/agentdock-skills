@@ -1,0 +1,266 @@
+{
+  "schema_version": 1,
+  "repository": "https://github.com/uvwt/agentdock-skills",
+  "skills": [
+    {
+      "name": "baidu-netdisk",
+      "version": "0.3.5",
+      "description": "Use this skill when managing Baidu Netdisk files through the bdpan CLI inside the application data scope.",
+      "path": "skills/baidu-netdisk",
+      "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/baidu-netdisk",
+      "release_tag": "baidu-netdisk-v0.3.5",
+      "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/baidu-netdisk-v0.3.5/baidu-netdisk-v0.3.5.zip",
+      "digest": "sha256:d3fd71c0777504fb20c387dda9e1063bbf1492e93d5885b406cb3ca7f457a4ab"
+    },
+    {
+      "name": "bark",
+      "version": "0.1.8",
+      "description": "Send Bark-compatible notifications with Python standard library while keeping the device key in the private Skill data environment.",
+      "path": "skills/bark",
+      "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/bark",
+      "release_tag": "bark-v0.1.8",
+      "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/bark-v0.1.8/bark-v0.1.8.zip",
+      "digest": "sha256:76d4518cbd3ba9d1bb03df36f93605c87614fb0dd12c0f8fb94158538d2fd4ad"
+    },
+    {
+      "name": "cloudsaver",
+      "version": "0.3.5",
+      "description": "Use this skill when calling the local CloudSaver API for status checks, resource search, Douban hot lists, share parsing, or transfer actions.",
+      "path": "skills/cloudsaver",
+      "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/cloudsaver",
+      "release_tag": "cloudsaver-v0.3.5",
+      "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/cloudsaver-v0.3.5/cloudsaver-v0.3.5.zip",
+      "digest": "sha256:8b01e4f3244e53eb0630de7892078eee114a66dd2f4d09196c3cde1973f92037"
+    },
+    {
+      "name": "code-debrief",
+      "version": "0.1.2",
+      "description": "Explain and teach the core implementation produced by vibecoding from real code, focusing on the main call chain, core code, state and data flow, design reasoning, and transferable engineering knowledge. Use when the user asks to explain, review, learn, debrief, or understand recent code changes, a commit, PR, diff, feature, module, or code path.",
+      "path": "skills/code-debrief",
+      "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/code-debrief",
+      "release_tag": "code-debrief-v0.1.2",
+      "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/code-debrief-v0.1.2/code-debrief-v0.1.2.zip",
+      "digest": "sha256:34565f963312635c88bb77c0c22586483b1e4f93f1c2e59388200f1c5cff5f48"
+    },
+    {
+      "name": "codex-usage",
+      "version": "0.1.6",
+      "description": "Use this skill when checking the current macOS user Codex CLI account state or Codex usage quota.",
+      "path": "skills/codex-usage",
+      "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/codex-usage",
+      "release_tag": "codex-usage-v0.1.6",
+      "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/codex-usage-v0.1.6/codex-usage-v0.1.6.zip",
+      "digest": "sha256:23670c44dc322236cfa97eba08742f3d64c3ec64d42b90f3b885f30bf3bc41fd"
+    },
+    {
+      "name": "desktop",
+      "version": "1.0.12",
+      "description": "macOS desktop automation as an AgentDock Skill workflow.",
+      "path": "skills/desktop",
+      "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/desktop",
+      "release_tag": "desktop-v1.0.12",
+      "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/desktop-v1.0.12/desktop-v1.0.12.zip",
+      "digest": "sha256:e9e93ecb7c739c6b95cae32dbeb84f397225857b0706b0ab0e23789c30f085d1"
+    },
+    {
+      "name": "douban-marks",
+      "version": "0.1.8",
+      "description": "只读查询豆瓣电影、图书、音乐标记列表和电影条目联想。用于读取用户自己的已看、想看、在看等标记；公开主页可直接读，私密列表需要本机环境或 .env 中的 DOUBAN_COOKIE。禁止用于批量采集、绕登录、写入标记或读取非授权账号。",
+      "path": "skills/douban-marks",
+      "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/douban-marks",
+      "release_tag": "douban-marks-v0.1.8",
+      "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/douban-marks-v0.1.8/douban-marks-v0.1.8.zip",
+      "digest": "sha256:8b37f63c763113c65f2d1331bf11f18ecc362d950c5978f283a94cb81f06356f"
+    },
+    {
+      "name": "douyin-hot",
+      "version": "1.0.9",
+      "description": "获取抖音实时热榜并返回标题、热度和跳转链接。",
+      "path": "skills/douyin-hot",
+      "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/douyin-hot",
+      "release_tag": "douyin-hot-v1.0.9",
+      "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/douyin-hot-v1.0.9/douyin-hot-v1.0.9.zip",
+      "digest": "sha256:cc0e7e562f59ef3b174174024f84e6f34f9a9bf0b1ffce8247051c6a72237f3e"
+    },
+    {
+      "name": "find-skills-skill",
+      "version": "1.0.6",
+      "description": "Search and discover OpenClaw skills from various sources. Use when: user wants to find available skills, search for specific functionality, or discover new skills to install.",
+      "path": "skills/find-skills-skill",
+      "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/find-skills-skill",
+      "release_tag": "find-skills-skill-v1.0.6",
+      "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/find-skills-skill-v1.0.6/find-skills-skill-v1.0.6.zip",
+      "digest": "sha256:f327f59e3fdbdbe100e7ab4b9f093a5593dfa454c268a5c2b437a2509dfe0f4a"
+    },
+    {
+      "name": "grill-me",
+      "version": "0.1.3",
+      "description": "Interview the user relentlessly about a plan or design until reaching shared understanding, resolving each branch of the decision tree. Use when user wants to stress-test a plan, get grilled on their design, or mentions \"grill me\".",
+      "path": "skills/grill-me",
+      "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/grill-me",
+      "release_tag": "grill-me-v0.1.3",
+      "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/grill-me-v0.1.3/grill-me-v0.1.3.zip",
+      "digest": "sha256:e66159f9d1ecd6f971d7b8b6630202de28a4b57db34afc3bfdaa0703ba6ff4b3"
+    },
+    {
+      "name": "grok-quota",
+      "version": "0.3.3",
+      "description": "Query detailed Grok weekly usage, GrokChat/GrokBuild breakdown, plan, monthly credits, and pay-as-you-go state from local xAI OAuth credentials.",
+      "path": "skills/grok-quota",
+      "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/grok-quota",
+      "release_tag": "grok-quota-v0.3.3",
+      "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/grok-quota-v0.3.3/grok-quota-v0.3.3.zip",
+      "digest": "sha256:6d24f292ae4ab6df82e3f61214848df4ae0abe6d338484a122660f2b5db61a92"
+    },
+    {
+      "name": "linkwarden",
+      "version": "1.1.0",
+      "description": "Manage a Linkwarden instance through its official HTTP API: check configuration, search and inspect bookmarks, collections, tags and highlights, and perform controlled link, collection or tag changes with explicit confirmation for destructive actions.",
+      "path": "skills/linkwarden",
+      "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/linkwarden",
+      "release_tag": "linkwarden-v1.1.0",
+      "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/linkwarden-v1.1.0/linkwarden-v1.1.0.zip",
+      "digest": "sha256:7cd11afdc70b66c6ef41e690b2583fa551f0e5cfcab8f7a6221d309f8d68a4ff"
+    },
+    {
+      "name": "ntfy",
+      "version": "0.2.5",
+      "description": "Use this skill when sending notifications via ntfy.sh or self-hosted ntfy servers.",
+      "path": "skills/ntfy",
+      "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/ntfy",
+      "release_tag": "ntfy-v0.2.5",
+      "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/ntfy-v0.2.5/ntfy-v0.2.5.zip",
+      "digest": "sha256:900385538f109ec0b49d185e6a698ec5520d06f6ee47efe814ec2c2329457460"
+    },
+    {
+      "name": "openlist",
+      "version": "0.2.5",
+      "description": "OpenList v4 HTTP API integration for AgentDock: authentication, file browsing/search, safe text uploads, file operations, storage/driver inspection, and restricted generic API calls.",
+      "path": "skills/openlist",
+      "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/openlist",
+      "release_tag": "openlist-v0.2.5",
+      "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/openlist-v0.2.5/openlist-v0.2.5.zip",
+      "digest": "sha256:663ac5d000d9f5a311d6f83fae9031cf43d407b361243ff13fe47357ece34005"
+    },
+    {
+      "name": "personal-dev-guard",
+      "version": "0.2.0",
+      "description": "Use this skill before or during code changes and code review to enforce readable, restrained, maintainable code with low patch smell.",
+      "path": "skills/personal-dev-guard",
+      "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/personal-dev-guard",
+      "release_tag": "personal-dev-guard-v0.2.0",
+      "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/personal-dev-guard-v0.2.0/personal-dev-guard-v0.2.0.zip",
+      "digest": "sha256:9e172ab6bb10df03ad0516b5cc5bdffac86ddebeca3fe016d0b9626a322fc1b1"
+    },
+    {
+      "name": "poke-api",
+      "version": "0.1.7",
+      "description": "Send context-rich instructions to Poke through the V2 inbound API using a securely injected API key.",
+      "path": "skills/poke-api",
+      "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/poke-api",
+      "release_tag": "poke-api-v0.1.7",
+      "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/poke-api-v0.1.7/poke-api-v0.1.7.zip",
+      "digest": "sha256:32dd0c7d1393022589ad0fefa900e754e5614d7e941d92c38eb2d91a67a192db"
+    },
+    {
+      "name": "qinglong",
+      "version": "0.1.8",
+      "description": "Operate a QingLong panel through its official open API. Use for QingLong health checks, env variables, cron tasks, task logs, and controlled panel API calls from AgentDock Skill.",
+      "path": "skills/qinglong",
+      "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/qinglong",
+      "release_tag": "qinglong-v0.1.8",
+      "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/qinglong-v0.1.8/qinglong-v0.1.8.zip",
+      "digest": "sha256:577afd331f043b620d30ae962798dcef28993acee333cc33f49c3788bf8d6008"
+    },
+    {
+      "name": "rsshub",
+      "version": "0.1.4",
+      "description": "Use the local RSSHub service for status checks, route URL construction, feed fetching, feed parsing, and route probing.",
+      "path": "skills/rsshub",
+      "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/rsshub",
+      "release_tag": "rsshub-v0.1.4",
+      "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/rsshub-v0.1.4/rsshub-v0.1.4.zip",
+      "digest": "sha256:52e002beba2b9ee657abe35abd3fe4293d2395a3b83f93dd18e7653d46d90764"
+    },
+    {
+      "name": "spotify-web-api",
+      "version": "0.1.8",
+      "description": "Use Spotify Web API with official OAuth PKCE. Use to authorize Spotify safely, search tracks, read current playback, and add tracks to playlists without importing browser cookies.",
+      "path": "skills/spotify-web-api",
+      "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/spotify-web-api",
+      "release_tag": "spotify-web-api-v0.1.8",
+      "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/spotify-web-api-v0.1.8/spotify-web-api-v0.1.8.zip",
+      "digest": "sha256:ffacf0b9f521792d0486ccffc96982091d968c7fce7e316e45f95d7c37756d47"
+    },
+    {
+      "name": "telegram-official",
+      "version": "0.1.5",
+      "description": "Send Dock notifications through Telegram's official Bot API using only Python standard library and api.telegram.org.",
+      "path": "skills/telegram-official",
+      "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/telegram-official",
+      "release_tag": "telegram-official-v0.1.5",
+      "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/telegram-official-v0.1.5/telegram-official-v0.1.5.zip",
+      "digest": "sha256:7183736c9623543d4bdb662042a547b4b2425eedb0dc246a1d534ab4d7f1ad71"
+    },
+    {
+      "name": "trilium",
+      "version": "1.1.1",
+      "description": "Search, read, create, update and organize notes in a Trilium Notes instance through the official ETAPI, including revisions, branches, attributes, attachments, calendar notes and explicitly confirmed destructive operations.",
+      "path": "skills/trilium",
+      "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/trilium",
+      "release_tag": "trilium-v1.1.1",
+      "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/trilium-v1.1.1/trilium-v1.1.1.zip",
+      "digest": "sha256:bfd194d071d2ca75cb2a506544faeb6726e204f6da2439326e886c87b79cb95c"
+    },
+    {
+      "name": "vaultwarden-cli",
+      "version": "1.0.5",
+      "description": "通过 Bitwarden 官方 bw CLI 安全访问自部署 Vaultwarden。默认只返回脱敏元数据，秘密只进入本机剪贴板。",
+      "path": "skills/vaultwarden-cli",
+      "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/vaultwarden-cli",
+      "release_tag": "vaultwarden-cli-v1.0.5",
+      "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/vaultwarden-cli-v1.0.5/vaultwarden-cli-v1.0.5.zip",
+      "digest": "sha256:42709bf13958d397789db78528e66e399c00bea26c4a6ed5c109ee7095cc28d4"
+    },
+    {
+      "name": "vitapulse",
+      "version": "0.2.4",
+      "description": "Read the private VitaPulse HealthKit API gateway with scoped tokens, freshness checks, trends, and asynchronous sync requests.",
+      "path": "skills/vitapulse",
+      "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/vitapulse",
+      "release_tag": "vitapulse-v0.2.4",
+      "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/vitapulse-v0.2.4/vitapulse-v0.2.4.zip",
+      "digest": "sha256:6f613720667d220316005bac2c7b1994c3357af4d29b596b3b071e1cacec11eb"
+    },
+    {
+      "name": "volcengine-ark-quota",
+      "version": "0.1.7",
+      "description": "Query VolcEngine Ark Coding Plan quota usage from the console endpoint using a logged-in cookie or Playwright storage state.",
+      "path": "skills/volcengine-ark-quota",
+      "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/volcengine-ark-quota",
+      "release_tag": "volcengine-ark-quota-v0.1.7",
+      "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/volcengine-ark-quota-v0.1.7/volcengine-ark-quota-v0.1.7.zip",
+      "digest": "sha256:825fe938a1744d43ce7bc90196a4e1ed6562c77bc773296f3be9a67658033df8"
+    },
+    {
+      "name": "wallos",
+      "version": "0.1.1",
+      "description": "Use this skill to query and manage subscriptions in a self-hosted Wallos instance through its official HTTP API. Covers subscriptions, monthly cost, categories, currencies, payment methods, household members, and the current user; excludes administrator, OIDC, notification-secret, Fixer, and generic API management.",
+      "path": "skills/wallos",
+      "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/wallos",
+      "release_tag": "wallos-v0.1.1",
+      "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/wallos-v0.1.1/wallos-v0.1.1.zip",
+      "digest": "sha256:4d651f59214322494f7778a9bf81ec045a2a2f4f436a6a81b4974f5b63119dc4"
+    },
+    {
+      "name": "weread-skills",
+      "version": "1.0.7",
+      "description": "微信读书助手，可搜索书籍、查看书架、笔记、书评、阅读统计与推荐。",
+      "path": "skills/weread-skills",
+      "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/weread-skills",
+      "release_tag": "weread-skills-v1.0.7",
+      "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/weread-skills-v1.0.7/weread-skills-v1.0.7.zip",
+      "digest": "sha256:88dc67a2404cec4d71c2f8b1f399b39333de4d2c15dc4b59989211386a367a4b"
+    }
+  ]
+}

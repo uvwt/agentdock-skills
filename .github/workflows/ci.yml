@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate Skills
+    runs-on: ubuntu-latest
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONPYCACHEPREFIX: ${{ runner.temp }}/agentdock-skills-pycache
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate repository
+        run: python3 scripts/skills.py validate
+
+      - name: Check catalog
+        run: python3 scripts/skills.py catalog --check
+
+      - name: Check Python syntax
+        run: python3 -m compileall -q scripts skills
+
+      - name: Test repository tooling
+        run: python3 scripts/test_skills.py
+
+      - name: Run Skill tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' test_file; do
+            test_dir="$(dirname "$test_file")"
+            test_name="$(basename "$test_file")"
+            echo "==> $test_file"
+            (cd "$test_dir" && python3 "$test_name")
+          done < <(find skills -name 'test*.py' -type f -print0 | sort -z)
