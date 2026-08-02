@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PYTHONDONTWRITEBYTECODE: '1'
-      PYTHONPYCACHEPREFIX: ${{ runner.temp }}/agentdock-skills-pycache
+      PYTHONPYCACHEPREFIX: /tmp/agentdock-skills-pycache
     steps:
       - name: Checkout
         uses: actions/checkout@v4
