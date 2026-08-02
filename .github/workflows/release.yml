@@ -1,0 +1,43 @@
+name: Release Skill
+
+on:
+  push:
+    tags:
+      - '*-v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Skill tag, for example trilium-v1.2.0'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Package and release Skill
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref_name }}
+
+      - name: Validate repository
+        run: |
+          python3 scripts/skills.py validate
+          python3 scripts/skills.py catalog --check
+
+      - name: Build deterministic package
+        env:
+          RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: python3 scripts/skills.py package --tag "$RELEASE_TAG" --output-dir dist
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          files: |
+            dist/*.zip
+            dist/*.zip.sha256
