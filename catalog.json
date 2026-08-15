@@ -53,6 +53,16 @@
       "digest": "sha256:23670c44dc322236cfa97eba08742f3d64c3ec64d42b90f3b885f30bf3bc41fd"
     },
     {
+      "name": "crawler-api",
+      "version": "1.0.1",
+      "description": "使用 ShilongLee/Crawler 兼容 HTTP 服务查询公开媒体内容时使用，重点支持抖音关键词搜索、图文/视频筛选与详情查询；不负责绕过登录、验证码、风控或采集非公开信息。",
+      "path": "skills/crawler-api",
+      "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/crawler-api",
+      "release_tag": "crawler-api-v1.0.1",
+      "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/crawler-api-v1.0.1/crawler-api-v1.0.1.zip",
+      "digest": "sha256:08cfa49a50b294c75844041b30ea9ded312e477356725d8b4298454d8996ed60"
+    },
+    {
       "name": "desktop",
       "version": "1.0.12",
       "description": "macOS desktop automation as an AgentDock Skill workflow.",
