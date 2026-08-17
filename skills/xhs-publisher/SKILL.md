@@ -1,7 +1,7 @@
 ---
 name: xhs-publisher
 description: 当用户要管理小红书图文自动发布器，包括扫描采集素材、AI 准备草稿、账号/Profile 登录状态、多账号调度、正式发帖、发布恢复或后台服务状态时使用。
-version: 0.4.0
+version: 0.5.0
 ---
 
 # XHS Publisher
@@ -94,6 +94,23 @@ xhs-publisher draft prepare --account <account-id>
 
 这个随机值只生成一次，只会延长基础间隔，不会缩短 `minIntervalMinutes`。重启、`scheduler status`、`scheduler run --dry-run` 或普通资格检查都只能读取已保存值，不能重新抽签。历史 publication 在数据库迁移时抖动为 0，不修改既有发布时间线。
 
+## 夜间禁发窗口
+
+发布器支持全局 `scheduler.quietHours`：
+
+```yaml
+scheduler:
+  quietHours:
+    enabled: true
+    start: '23:00'
+    end: '08:00'
+    timeZone: Asia/Shanghai
+```
+
+`start` 含、`end` 不含；`23:00-08:00` 按跨午夜窗口处理。当前调度时区固定为 `Asia/Shanghai`，与每日发布上限的统计口径保持一致。
+
+禁发窗口属于真实发布资格门禁：`scheduler run` 和手动 `publish next --account ...` 都不能绕过；`draft prepare` 和只读 `publication reconcile` 不受影响。命中时 `scheduler status` / `scheduler run --dry-run` 会显示 `reason=quiet_hours` 和最早 `nextEligibleAt`，不会打开浏览器。
+
 ## 正式发布
 
 用户明确要求自动选择账号并发一篇时：
@@ -102,7 +119,7 @@ xhs-publisher draft prepare --account <account-id>
 xhs-publisher scheduler run
 ```
 
-调度器一次最多产生一篇真实发布；会先应用每日上限、最小间隔、未决发布检查和账号登录检查。
+调度器一次最多产生一篇真实发布；会先应用每日上限、最小间隔、夜间禁发、未决发布检查和账号登录检查。
 
 用户明确指定账号时：
 
