@@ -1,7 +1,7 @@
 ---
 name: xhs-publisher
 description: 当用户要管理小红书图文自动发布器，包括扫描采集素材、AI 准备草稿、账号/Profile 登录状态、多账号调度、正式发帖、发布恢复或后台服务状态时使用。
-version: 0.3.0
+version: 0.4.0
 ---
 
 # XHS Publisher
@@ -75,13 +75,24 @@ xhs-publisher draft prepare --account <account-id>
 
 ## 通知
 
-发布器支持 Bark 与钉钉自定义机器人同时启用。钉钉配置只保存环境变量名，真实 Webhook/Secret 不进入 YAML、SQLite、plist、日志或 Skill 包：
+发布器只使用钉钉自定义机器人作为旁路通知。钉钉配置只保存环境变量名，真实 Webhook/Secret 不进入 YAML、SQLite、plist、日志或 Skill 包：
 
 - `DINGTALK_WEBHOOK_URL`：机器人完整 Webhook，包含 `access_token`，属于 secret；
 - `DINGTALK_SECRET`：机器人启用“加签”时提供，可选；
 - `notification.dingtalk.keyword`：会放进每条 Markdown 消息，使用钉钉“自定义关键词”安全模式时应与后台关键词一致。
 
-钉钉和 Bark 分别记录通知去重状态。某个通道成功后，另一个通道失败不会让已成功通道重复发送；通知失败始终只是旁路错误，不能回滚 `published`，也不能触发重复发帖。
+钉钉成功后记录通知去重状态。通知失败始终只是旁路错误，不能回滚 `published`，也不能触发重复发帖。
+
+## 发布间隔抖动
+
+账号配置可以同时设置：
+
+- `minIntervalMinutes`：固定的最小发布间隔；
+- `intervalJitterMinutes`：额外随机等待上限。
+
+一次发布被成功验证为 `published`（包括只读 reconcile 最终确认）后，发布器会生成一个 `0..intervalJitterMinutes` 的整数分钟抖动并写入该 publication。下一次资格时间按 `verifiedAt + minIntervalMinutes + 已持久化抖动` 计算。
+
+这个随机值只生成一次，只会延长基础间隔，不会缩短 `minIntervalMinutes`。重启、`scheduler status`、`scheduler run --dry-run` 或普通资格检查都只能读取已保存值，不能重新抽签。历史 publication 在数据库迁移时抖动为 0，不修改既有发布时间线。
 
 ## 正式发布
 
@@ -151,4 +162,4 @@ xhs-publisher service uninstall
 
 在 AgentDock 中使用普通命令工具执行上面的 CLI；需要真实发布时，用户当前请求必须明确包含发布意图。只读状态、dry-run 和 reconcile 可以直接执行。
 
-执行后至少返回：账号、publication ID、标题、最终状态，以及是否需要登录/人工核对。不要返回 Cookie、验证码、AI Key、Bark device key、钉钉 Webhook/Secret 或浏览器 session 数据。
+执行后至少返回：账号、publication ID、标题、最终状态，以及是否需要登录/人工核对。不要返回 Cookie、验证码、AI Key、钉钉 Webhook/Secret 或浏览器 session 数据。
