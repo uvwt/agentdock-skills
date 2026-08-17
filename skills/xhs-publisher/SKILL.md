@@ -1,7 +1,7 @@
 ---
 name: xhs-publisher
 description: 当用户要管理小红书图文自动发布器，包括扫描采集素材、AI 准备草稿、账号/Profile 登录状态、多账号调度、正式发帖、发布恢复或后台服务状态时使用。
-version: 0.2.0
+version: 0.3.0
 ---
 
 # XHS Publisher
@@ -59,6 +59,10 @@ xhs-publisher draft prepare --account <account-id>
 
 这一步可以调用 AI、验证素材并创建 `ready` reservation，但不会点击小红书发布。
 
+正文生成使用结构化 JSON 作为模型内部传输格式，但最终发到小红书的仍是普通标题和正文。当前正文规则是：标题不超过 20 个字符；正文口语化、按 3—6 个要点组织；不自动追加来源/出处；正文最后一行必须有 6—10 个 `#话题`。如果模型输出不符合这些硬约束，草稿准备失败，不能带着错误格式继续发布。
+
+正文模型地址既可以是 API 根地址，也可以直接是完整 `/chat/completions` endpoint。Skill 排查配置时只确认 `XHS_AI_BASE_URL`、`XHS_AI_API_KEY`、`XHS_AI_MODEL` 是否存在，以及模型请求是否成功；不得回显 API Key。
+
 ## 图片引流过滤
 
 当发布器配置启用 `vision.enabled=true` 时，`draft prepare` 和正式发布都会在浏览器上传前自动执行图片引流过滤，不需要 Skill 额外调用模型。
@@ -67,7 +71,17 @@ xhs-publisher draft prepare --account <account-id>
 
 命中图片只从本次上传列表剔除，不删除或改写原文件。模型调用失败、结果结构矛盾或无法解析时必须 fail-closed，停止本次准备；不能为了继续发帖而绕过过滤。若全部图片被过滤，来源会进入 `blocked`，不会创建 ready publication。
 
-多模态模型与正文模型使用独立配置。Skill 不读取或输出密钥；需要排查配置时只确认 `XHS_VISION_BASE_URL`、`XHS_VISION_API_KEY`、`XHS_VISION_MODEL` 是否已由发布器环境提供，不回显值。
+多模态模型与正文模型使用独立配置。视觉地址既可以是 API 根地址/完整 `/chat/completions`，也可以直接使用完整 `/responses` endpoint；后者由发布器自动切换为 Responses `input_image` 格式。Skill 不读取或输出密钥；需要排查配置时只确认 `XHS_VISION_BASE_URL`、`XHS_VISION_API_KEY`、`XHS_VISION_MODEL` 是否已由发布器环境提供，不回显值。
+
+## 通知
+
+发布器支持 Bark 与钉钉自定义机器人同时启用。钉钉配置只保存环境变量名，真实 Webhook/Secret 不进入 YAML、SQLite、plist、日志或 Skill 包：
+
+- `DINGTALK_WEBHOOK_URL`：机器人完整 Webhook，包含 `access_token`，属于 secret；
+- `DINGTALK_SECRET`：机器人启用“加签”时提供，可选；
+- `notification.dingtalk.keyword`：会放进每条 Markdown 消息，使用钉钉“自定义关键词”安全模式时应与后台关键词一致。
+
+钉钉和 Bark 分别记录通知去重状态。某个通道成功后，另一个通道失败不会让已成功通道重复发送；通知失败始终只是旁路错误，不能回滚 `published`，也不能触发重复发帖。
 
 ## 正式发布
 
@@ -137,4 +151,4 @@ xhs-publisher service uninstall
 
 在 AgentDock 中使用普通命令工具执行上面的 CLI；需要真实发布时，用户当前请求必须明确包含发布意图。只读状态、dry-run 和 reconcile 可以直接执行。
 
-执行后至少返回：账号、publication ID、标题、最终状态，以及是否需要登录/人工核对。不要返回 Cookie、验证码、AI Key、Bark device key 或浏览器 session 数据。
+执行后至少返回：账号、publication ID、标题、最终状态，以及是否需要登录/人工核对。不要返回 Cookie、验证码、AI Key、Bark device key、钉钉 Webhook/Secret 或浏览器 session 数据。
