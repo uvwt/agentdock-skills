@@ -1,0 +1,129 @@
+---
+name: xhs-publisher
+description: 当用户要管理小红书图文自动发布器，包括扫描采集素材、AI 准备草稿、账号/Profile 登录状态、多账号调度、正式发帖、发布恢复或后台服务状态时使用。
+version: 0.1.0
+---
+
+# XHS Publisher
+
+用于操作已经安装的 `xhs-publisher` CLI。Skill 只描述稳定工作流和安全边界；账号 Profile、SQLite、AI 密钥、通知密钥和 launchd 状态都由发布器本身管理，不进入 Skill 包。
+
+## 适用场景
+
+- 查看还有哪些采集来源未发布；
+- 扫描新增采集内容；
+- 生成但不发布一篇 AI 润色草稿；
+- 查看或验证账号独立 Chrome Profile；
+- 用户明确要求“发一篇”“发布下一篇”时执行真实发布；
+- 查看多账号自动调度顺序；
+- 处理 `needs_manual_review`，只读核对是否已经发布；
+- 查看、安装或卸载 macOS launchd 后台 runner。
+
+不用于采集器本身、验证码破解、滑块绕过、指纹伪装、代理轮换或其他规避平台安全机制的操作。
+
+## 前置检查
+
+先确认 CLI 可用：
+
+```bash
+command -v xhs-publisher
+xhs-publisher --version
+```
+
+如果 CLI 不在 PATH，返回明确失败证据，不要猜测项目绝对路径。
+
+## 常用只读操作
+
+```bash
+xhs-publisher account list
+xhs-publisher scheduler status
+xhs-publisher source list --status pending
+xhs-publisher publication list --status needs_manual_review
+xhs-publisher service status
+```
+
+只想检查自动调度但绝不触碰浏览器和发布时：
+
+```bash
+xhs-publisher scheduler run --dry-run
+```
+
+## 草稿准备
+
+用户只要求润色、预备或看下一篇，不要求公开发布时：
+
+```bash
+xhs-publisher draft prepare --account <account-id>
+```
+
+这一步可以调用 AI、验证素材并创建 `ready` reservation，但不会点击小红书发布。
+
+## 正式发布
+
+用户明确要求自动选择账号并发一篇时：
+
+```bash
+xhs-publisher scheduler run
+```
+
+调度器一次最多产生一篇真实发布；会先应用每日上限、最小间隔、未决发布检查和账号登录检查。
+
+用户明确指定账号时：
+
+```bash
+xhs-publisher publish next --account <account-id>
+```
+
+发布成功必须以 CLI 最终返回 `status: published` 为准。程序内部还会经过成功页和笔记管理二次验证，不能把“点击了发布”当作完成。
+
+## 登录与人工接管
+
+查看登录：
+
+```bash
+xhs-publisher account status <account-id>
+```
+
+需要重新登录时：
+
+```bash
+xhs-publisher account login <account-id>
+```
+
+验证码、扫码、滑块和安全验证必须由用户处理。不要实现或调用绕过验证的流程。每个账号只能使用自己的 Persistent Profile。
+
+## 未决发布恢复
+
+CLI 退出码 `21` 或数据库状态为 `needs_manual_review` 时，禁止再次执行 `publish next` / `scheduler run` 来碰同一来源。
+
+先查看：
+
+```bash
+xhs-publisher publication list --status needs_manual_review
+```
+
+然后只读核对：
+
+```bash
+xhs-publisher publication reconcile <publication-id>
+```
+
+只有笔记管理实际找到对应笔记后，发布器才会收敛为 `published`。找不到时保持未决，继续报告证据，不要自动二次提交。
+
+CLI 退出码 `20` 表示账号需要人工登录。
+
+## 后台服务
+
+```bash
+xhs-publisher service status
+xhs-publisher service install
+xhs-publisher service uninstall
+```
+
+`service install` 只安装并加载 launchd，不应通过 Skill 额外 kickstart 一次发布。后台周期由发布器配置控制，并有全局 PID 锁避免重入。
+
+## AgentDock 适配
+
+在 AgentDock 中使用普通命令工具执行上面的 CLI；需要真实发布时，用户当前请求必须明确包含发布意图。只读状态、dry-run 和 reconcile 可以直接执行。
+
+执行后至少返回：账号、publication ID、标题、最终状态，以及是否需要登录/人工核对。不要返回 Cookie、验证码、AI Key、Bark device key 或浏览器 session 数据。
