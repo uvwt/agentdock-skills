@@ -1,7 +1,7 @@
 ---
 name: xhs-publisher
 description: 当用户要管理小红书图文自动发布器，包括扫描采集素材、AI 准备草稿、账号/Profile 登录状态、多账号调度、正式发帖、发布恢复或后台服务状态时使用。
-version: 0.1.0
+version: 0.2.0
 ---
 
 # XHS Publisher
@@ -13,6 +13,7 @@ version: 0.1.0
 - 查看还有哪些采集来源未发布；
 - 扫描新增采集内容；
 - 生成但不发布一篇 AI 润色草稿；
+- 检查或说明发布前图片引流过滤行为与失败原因；
 - 查看或验证账号独立 Chrome Profile；
 - 用户明确要求“发一篇”“发布下一篇”时执行真实发布；
 - 查看多账号自动调度顺序；
@@ -57,6 +58,16 @@ xhs-publisher draft prepare --account <account-id>
 ```
 
 这一步可以调用 AI、验证素材并创建 `ready` reservation，但不会点击小红书发布。
+
+## 图片引流过滤
+
+当发布器配置启用 `vision.enabled=true` 时，`draft prepare` 和正式发布都会在浏览器上传前自动执行图片引流过滤，不需要 Skill 额外调用模型。
+
+过滤目标包括二维码、手机号、微信/QQ/Telegram/WhatsApp、邮箱、网址/域名、公众号/小程序、加群/加V/扫码咨询/私信关键词领取等明显站外或私域导流。普通作者昵称、平台水印、平台标识和没有联系方式或跳转目标的普通“点赞收藏关注”不能仅凭这些本身判为引流。
+
+命中图片只从本次上传列表剔除，不删除或改写原文件。模型调用失败、结果结构矛盾或无法解析时必须 fail-closed，停止本次准备；不能为了继续发帖而绕过过滤。若全部图片被过滤，来源会进入 `blocked`，不会创建 ready publication。
+
+多模态模型与正文模型使用独立配置。Skill 不读取或输出密钥；需要排查配置时只确认 `XHS_VISION_BASE_URL`、`XHS_VISION_API_KEY`、`XHS_VISION_MODEL` 是否已由发布器环境提供，不回显值。
 
 ## 正式发布
 
