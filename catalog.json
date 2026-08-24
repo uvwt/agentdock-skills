@@ -271,16 +271,6 @@
       "release_tag": "weread-skills-v1.0.7",
       "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/weread-skills-v1.0.7/weread-skills-v1.0.7.zip",
       "digest": "sha256:88dc67a2404cec4d71c2f8b1f399b39333de4d2c15dc4b59989211386a367a4b"
-    },
-    {
-      "name": "xhs-publisher",
-      "version": "0.5.0",
-      "description": "当用户要管理小红书图文自动发布器，包括扫描采集素材、AI 准备草稿、账号/Profile 登录状态、多账号调度、正式发帖、发布恢复或后台服务状态时使用。",
-      "path": "skills/xhs-publisher",
-      "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/xhs-publisher",
-      "release_tag": "xhs-publisher-v0.5.0",
-      "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/xhs-publisher-v0.5.0/xhs-publisher-v0.5.0.zip",
-      "digest": "sha256:8f5f49134fedd59b3869cbe3a9fc312d4d8d0fc9c295e6286864dd5718faec53"
     }
   ]
 }
