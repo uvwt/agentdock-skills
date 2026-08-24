@@ -1,7 +1,7 @@
 ---
 name: xhs-publisher
 description: 当用户要管理小红书图文自动发布器，包括扫描采集素材、AI 准备草稿、账号/Profile 登录状态、多账号调度、正式发帖、发布恢复或后台服务状态时使用。
-version: 0.5.0
+version: 0.6.0
 ---
 
 # XHS Publisher
@@ -128,6 +128,18 @@ xhs-publisher publish next --account <account-id>
 ```
 
 发布成功必须以 CLI 最终返回 `status: published` 为准。程序内部还会经过成功页和笔记管理二次验证，不能把“点击了发布”当作完成。
+
+## 指定账号浏览器
+
+只想人工查看、维护或登录某个账号的独立 Chrome Profile 时：
+
+```bash
+xhs-publisher account open <account-id>
+```
+
+该命令只读取账号配置并打开对应 `profilePath` 的 Persistent Profile，默认进入小红书首页；不会创建 SQLite publication，不调用正文 AI、多模态检测、scheduler 或发布流程。即使账号 `enabled=false`，仍允许人工打开其 Profile 做维护，但禁用状态不会因此改变，自动/手动发布仍会被 `findAccount` 拒绝。
+
+命令会在 Chrome 打开期间持续持有该账号的 PID 锁；关闭该 Chrome 窗口后锁才释放并结束命令。因此 scheduler 如果同时碰到该账号，会把它视为 busy 并安全结束本轮，不会抢用同一个 Profile 或换账号继续制造发布副作用。不同账号必须始终使用各自独立的 Persistent Profile，不能复制、混用 Cookie、LocalStorage 或 IndexedDB。
 
 ## 登录与人工接管
 
