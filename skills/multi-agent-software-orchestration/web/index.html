@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Multi-Agent Control Tower</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">MULTI-AGENT SOFTWARE ORCHESTRATION</div>
+        <h1>协作控制塔</h1>
+      </div>
+      <nav class="nav">
+        <a class="nav-link active" href="/">总览</a>
+        <a class="nav-link primary" href="/add">＋ 添加任务</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero-row">
+        <div>
+          <p class="lede">项目、Work Item 与 0–8 号 Agent 的实时工作面，一眼看到谁在做什么、哪里阻塞、下一步该看哪里。</p>
+          <div class="live"><span class="pulse"></span> 本机状态 <span id="updatedAt">正在读取…</span></div>
+        </div>
+        <div id="summary" class="summary-grid" aria-live="polite"></div>
+      </section>
+
+      <section id="projects" class="projects" aria-live="polite">
+        <div class="loading">正在读取 .multi-agent 状态…</div>
+      </section>
+    </main>
+  </div>
+  <script src="/assets/dashboard.js" defer></script>
+</body>
+</html>

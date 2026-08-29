@@ -1,7 +1,7 @@
 ---
 name: multi-agent-software-orchestration
-description: 当用户要把长期软件项目拆给多个可替换 Agent 或定时任务协作，并通过 Git/GitHub、独立 worktree、0–8 号角色、独立 QA/确认/安全/基准门禁保持连续开发时使用。
-version: 1.0.1
+description: 当用户要给某个软件项目添加、查看、暂停、恢复或调整开发任务，或把长期项目拆给多个可替换 Agent/定时任务协作，并通过 Git/GitHub、独立 worktree、0–8 号角色和独立门禁持续推进时使用。
+version: 1.2.0
 ---
 
 # Multi-Agent Software Orchestration
@@ -54,41 +54,132 @@ version: 1.0.1
 
 如果聊天记录与 Git/项目状态冲突，以已经提交并共享的项目状态为准；无法判断时停止扩散冲突，交给 0 号裁决。
 
-## 二、推荐项目状态目录
+## 二、Project → Work Item → Role Task 三层模型
+
+必须区分长期项目、用户交付的一件工作，以及角色执行的子任务：
+
+```text
+Project
+└── Work Item
+    └── Role Task
+```
+
+- **Project**：长期存在的软件项目/仓库，例如 AgentDock、NexusDock。项目本身不是一次任务。
+- **Work Item**：用户希望完成的一件独立工作，例如“实现局域网文件直传”。它有自己的目标、状态、优先级和完成条件。
+- **Role Task**：0 号为某个 Work Item 拆给 1–8 号的具体子任务。Role Task 必须归属于一个 Work Item。
+
+不要把 `Project` 名称写进“当前任务”，也不要用一个全局 `roles/<id>/TASK.md` 覆盖该角色在其他 Work Item 中的任务。
+
+### 推荐项目状态目录
 
 0 号首次初始化项目时，优先创建：
 
 ```text
 .multi-agent/
-├── COMMAND.md
+├── PROJECT.md
 ├── BOARD.md
 ├── DECISIONS.md
-├── RELEASE.md
-└── roles/
-    ├── 0/
-    │   ├── TASK.md
-    │   ├── STATE.md
-    │   └── HISTORY.md
-    ├── 1/
-    │   ├── TASK.md
-    │   ├── STATE.md
-    │   └── HISTORY.md
-    └── ...
+└── work-items/
+    ├── WI-0001/
+    │   ├── WORK.md
+    │   ├── BOARD.md
+    │   ├── RELEASE.md
+    │   └── roles/
+    │       ├── 0/
+    │       │   ├── TASK.md
+    │       │   └── STATE.md
+    │       ├── 1/
+    │       │   ├── TASK.md
+    │       │   └── STATE.md
+    │       └── ...
+    └── WI-0002/
+        └── ...
 ```
 
-这些文件承担以下职责：
+职责：
 
-- `COMMAND.md`：项目目标、当前阶段、全局约束、接口边界、验收标准和 0 号中央指令。
-- `BOARD.md`：任务分配、依赖、负责人、状态、阻塞和交付顺序。
-- `DECISIONS.md`：已经确认的重要架构/产品/接口决策，以及证据和替代方案。
-- `RELEASE.md`：当前集成候选、QA/确认/安全/基准门禁和最终发布状态。
-- `roles/<id>/TASK.md`：该角色当前明确任务、输入、边界和完成条件。
-- `roles/<id>/STATE.md`：当前分支、worktree、最近提交、进行到哪里、阻塞、下一步。
-- `roles/<id>/HISTORY.md`：简洁的阶段性历史和重要交接，不复制完整 Git 日志。
+- `PROJECT.md`：项目身份、仓库、长期目标、全局约束和默认分支。
+- 项目级 `BOARD.md`：所有 Work Item 的索引、状态、优先级和负责人。
+- `DECISIONS.md`：跨 Work Item 生效的重要架构/产品/接口决策。
+- `work-items/WI-NNNN/WORK.md`：该 Work Item 的标题、来源、目标、范围、验收条件、优先级和生命周期状态。
+- Work Item 内 `BOARD.md`：该工作项的 Role Task、依赖、负责人、状态和交付顺序。
+- `RELEASE.md`：该 Work Item 的集成候选及 QA/确认/安全/基准门禁。
+- `roles/<id>/TASK.md`：该角色只针对当前 Work Item 的任务、输入、边界和完成条件。
+- `roles/<id>/STATE.md`：该角色在当前 Work Item 的分支、worktree、最近提交、阻塞、下一步和交接。
 
-角色长期身份以本 Skill 为基线。项目可以在 `COMMAND.md` 中增加项目特定覆盖，但不能静默改变角色的独立性和门禁职责。
+Work Item ID 使用项目内单调递增的稳定编号，例如 `WI-0042`；编号一旦分配不因标题变化而改变。标题可以修改，ID 不复用。
 
-如果项目已有等价状态目录，不为了套模板强行迁移；沿用现有结构并保持同样的信息契约。
+如果项目已有等价任务系统，不为了套模板强行迁移；可以映射到 Issue、项目板或现有目录，但必须保留 Project、Work Item、Role Task 三层语义。
+
+### 用户直接管理 Work Item
+
+本 Skill 应支持用户直接用自然语言管理项目任务。典型入口包括：
+
+```text
+给项目 AgentDock 添加任务：实现局域网文件直传
+查看 AgentDock 当前有哪些任务
+暂停 AgentDock 的 WI-0042
+恢复 AgentDock 的 WI-0042
+把 AgentDock 的 WI-0042 优先级提高
+让 7 号重新检查 AgentDock 的 WI-0042
+```
+
+当用户说“给项目 `<project>` 添加任务：`<goal>`”时：
+
+1. 先解析并定位 Project 的真实仓库；同名或无法唯一定位时再询问，不凭空创建仓库。
+2. 检查项目级 `BOARD.md` 和已有 Work Item，避免明显重复任务。
+3. 分配下一个稳定 `WI-NNNN`。
+4. 创建该 Work Item 的 `WORK.md`、`BOARD.md`、`RELEASE.md` 和必要角色目录。
+5. **用户未指定角色时，默认 Owner 为 0 号**，由 0 号分析、拆分和分派 Role Task。
+6. 用户明确指定角色时，把它视为人工分配约束；0 号仍负责全局可见性和最终集成，但不得无理由覆盖用户指定负责人。
+7. 更新项目级 `BOARD.md`，提交并推送，使后续定时 Agent 可以从 Git 恢复。
+
+添加 Work Item 不等于立即把所有角色目录填满。0 号应根据任务实际需要选择参与角色；不相关角色标记 `N/A`，不要为了凑齐 0–8 号制造工作。
+
+任务生命周期至少使用：`BACKLOG`、`ACTIVE`、`BLOCKED`、`REVIEW`、`DONE`、`PAUSED`、`CANCELLED`。暂停只改变生命周期并保留历史；恢复时从已有状态继续，不新建重复 Work Item。
+
+### 状态文件的机器可读头
+
+为保证人和控制台读取同一份真相，`PROJECT.md`、`WORK.md`、`TASK.md`、`STATE.md` 可以使用简单 frontmatter 保存稳定标量字段，正文继续写给人看。至少保持：
+
+- `WORK.md`：`id`、`title`、`status`、`priority`、`owner`、`created_at`、`updated_at`；
+- `TASK.md`：`work_item`、`role`、`title`、`status`、`updated_at`；
+- `STATE.md`：`work_item`、`role`、`status`、`task`、`branch`、`last_commit`、`blockers`、`updated_at`。
+
+Agent 修改状态时应同时更新这些字段和必要正文，不另建数据库或 UI 私有状态。
+
+### 本地 HTML 控制台
+
+本 Skill 包含 `run.py` 和 `web/`，可启动一个只读/受控写入的本地控制台。它直接扫描启动时明确允许的项目根目录中的 `.multi-agent/`，展示：
+
+- 已接入的 Project 和每个项目的 Work Item；
+- ACTIVE / BLOCKED / REVIEW / DONE 等任务状态与优先级；
+- 0–8 号 Agent 当前是否 IDLE、READY、WORKING、REVIEW 或 BLOCKED；
+- 每个 Agent 当前关联的 Work Item 和 Role Task；
+- 独立“添加任务”页面，用于创建新的 Work Item。
+
+控制台状态来自 Git 可持久化的 `.multi-agent/`，不是“Agent 进程是否在线”的实时进程监控。只有角色把最新状态写入 `STATE.md` 后，大屏才会显示对应变化。
+
+通用启动示例在 Skill 包根目录执行：
+
+```bash
+printf '%s' '{"skill_action":"serve","projects":[{"id":"agentdock","name":"AgentDock","path":"/path/to/agentdock"}],"port":8765}' | python3 run.py
+```
+
+启动后访问 `http://127.0.0.1:8765/` 查看总览，访问 `/add` 手动添加任务。默认且当前实现只监听 loopback；浏览器写接口只能选择启动配置里的项目 ID，不能提交任意项目路径。
+
+“添加任务”页面默认勾选 Git 同步。创建 Work Item 后，只对项目根目录下的 `.multi-agent` 执行 `git add/commit/push`，让其他 worktree 和定时 Agent 可以从共享 Git 状态立即恢复。项目不是 Git 根目录、处于 detached HEAD、没有可推送远端或 push 失败时，不删除已经创建的 Work Item，而是在页面明确显示 `skipped`、`failed` 或 `committed_not_pushed`；后续必须先完成同步再把任务视为已共享。
+
+辅助动作：
+
+```text
+status        查看控制台能力
+snapshot      输出当前项目/任务/Agent JSON 快照
+add_work_item 直接创建 Work Item
+serve         启动本地 HTML 控制台
+```
+
+用户说“打开多 Agent 大屏”“启动项目任务看板”“打开添加任务页面”等时，先解析需要展示的真实项目根目录，再使用 `serve`。不要为了方便把整台机器某个父目录暴露给控制台。
 
 ## 三、每次唤醒的恢复协议
 
@@ -99,8 +190,9 @@ version: 1.0.1
 必须明确：
 
 - 当前角色编号；
-- 当前项目仓库；
-- 当前任务；
+- 当前 Project 及真实仓库；
+- 当前 Work Item ID；
+- 当前 Role Task；
 - 自己允许修改的职责范围；
 - 哪些门禁或上游输入尚未满足。
 
@@ -114,7 +206,7 @@ version: 1.0.1
 - 自己的工作分支和 worktree 是否存在；
 - 工作区是否有未提交修改；
 - 远端是否有新的中央指令、任务、接口变更或已集成提交；
-- `.multi-agent/COMMAND.md`、`BOARD.md`、自己的 `TASK.md`、`STATE.md` 和必要的 `DECISIONS.md`；
+- `.multi-agent/PROJECT.md`、项目级 `BOARD.md`、当前 Work Item 的 `WORK.md`/`BOARD.md`、自己的 `TASK.md`/`STATE.md` 和必要的 `DECISIONS.md`；
 - 上一轮自己的最近提交和测试结果。
 
 不得仅凭上一次聊天记忆继续开发。
@@ -126,7 +218,7 @@ version: 1.0.1
 推荐命名：
 
 ```text
-multi-agent/<role-id>-<task-slug>
+multi-agent/<work-item-id>/<role-id>-<task-slug>
 ```
 
 同一个角色也可以在不同任务间使用短期分支，但一个 worktree 在同一时刻只服务一个清晰任务。
@@ -381,8 +473,10 @@ handoff:
 每个 Agent 一轮工作结束时，都应该给出足够让下一次唤醒恢复的信息：
 
 ```text
+PROJECT: <project>
+WORK_ITEM: <WI-NNNN>
 ROLE: <0-8>
-TASK: <当前任务>
+TASK: <当前 Role Task>
 STATUS: DONE | IN_PROGRESS | BLOCKED | REVIEW
 BRANCH: <branch>
 COMMIT: <sha or none>
@@ -403,9 +497,10 @@ NEXT: <下一轮第一步>
 ```text
 使用 multi-agent-software-orchestration Skill。
 你是 <N> 号角色：<角色名称>。
-项目：<仓库或项目标识>。
+项目：<稳定项目标识>。
 按 Skill 的恢复协议从 Git 和项目状态恢复，不依赖聊天历史。
-只处理属于本角色的任务；完成可验证增量后提交、推送并更新交接状态。
+扫描项目级 BOARD 中分配给本角色的 ACTIVE/REVIEW Work Item，再读取对应 Role Task。
+只处理属于本角色且依赖已满足的 Role Task；完成可验证增量后提交、推送并更新交接状态。
 ```
 
 调度时间、并发数量和唤醒间隔由外部调度器决定，不写死在 Skill 中。

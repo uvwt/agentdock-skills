@@ -124,13 +124,13 @@
     },
     {
       "name": "multi-agent-software-orchestration",
-      "version": "1.0.1",
-      "description": "当用户要把长期软件项目拆给多个可替换 Agent 或定时任务协作，并通过 Git/GitHub、独立 worktree、0–8 号角色、独立 QA/确认/安全/基准门禁保持连续开发时使用。",
+      "version": "1.2.0",
+      "description": "当用户要给某个软件项目添加、查看、暂停、恢复或调整开发任务，或把长期项目拆给多个可替换 Agent/定时任务协作，并通过 Git/GitHub、独立 worktree、0–8 号角色和独立门禁持续推进时使用。",
       "path": "skills/multi-agent-software-orchestration",
       "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/multi-agent-software-orchestration",
-      "release_tag": "multi-agent-software-orchestration-v1.0.1",
-      "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/multi-agent-software-orchestration-v1.0.1/multi-agent-software-orchestration-v1.0.1.zip",
-      "digest": "sha256:2357c299738ea339e1acf188574bffa934c083a62e829c926089d6fd66eecc52"
+      "release_tag": "multi-agent-software-orchestration-v1.2.0",
+      "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/multi-agent-software-orchestration-v1.2.0/multi-agent-software-orchestration-v1.2.0.zip",
+      "digest": "sha256:c42b4fce1b0c52029292a700f2bc37d5000919c778c976888dfe5ea87f44977e"
     },
     {
       "name": "ntfy",

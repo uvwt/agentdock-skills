@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>添加任务 · Multi-Agent Control Tower</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+  <div class="shell narrow-shell">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">WORK ITEM INTAKE</div>
+        <h1>添加任务</h1>
+      </div>
+      <nav class="nav">
+        <a class="nav-link" href="/">← 返回总览</a>
+      </nav>
+    </header>
+
+    <main class="intake-layout">
+      <section class="form-card">
+        <div class="section-heading">
+          <div>
+            <span class="section-kicker">NEW WORK ITEM</span>
+            <h2>把一件事交给项目</h2>
+          </div>
+          <span class="badge neutral">默认由 0 号接管</span>
+        </div>
+
+        <form id="taskForm">
+          <label>
+            <span>项目</span>
+            <select id="project" name="project_id" required></select>
+          </label>
+          <label>
+            <span>任务标题</span>
+            <input id="title" name="title" maxlength="180" placeholder="例如：实现局域网文件直传" required>
+          </label>
+          <label>
+            <span>目标 / 要求</span>
+            <textarea id="goal" name="goal" rows="7" maxlength="4000" placeholder="描述要完成什么、边界、验收重点。0 号会继续拆成 Role Task。" required></textarea>
+          </label>
+          <div class="form-grid">
+            <label>
+              <span>优先级</span>
+              <select id="priority" name="priority">
+                <option value="NORMAL">Normal</option>
+                <option value="HIGH">High</option>
+                <option value="URGENT">Urgent</option>
+                <option value="LOW">Low</option>
+              </select>
+            </label>
+            <label>
+              <span>直接交给</span>
+              <select id="owner" name="owner">
+                <option value="0">0 · 总控与集成</option>
+                <option value="1">1 · 核心系统</option>
+                <option value="2">2 · Web Backend</option>
+                <option value="3">3 · Web Frontend</option>
+                <option value="4">4 · QA 独立审核</option>
+                <option value="5">5 · DevX / 文档 / 工具链</option>
+                <option value="6">6 · Confirmatory Prior</option>
+                <option value="7">7 · Security Red Team</option>
+                <option value="8">8 · Evaluation Benchmark</option>
+              </select>
+            </label>
+          </div>
+          <label class="check-row">
+            <input id="syncGit" name="sync_git" type="checkbox" checked>
+            <span><strong>创建后提交并推送 `.multi-agent`</strong><small>让其他 worktree / 定时 Agent 可以从 Git 立即看到新任务；失败时会明确提示。</small></span>
+          </label>
+          <div id="formMessage" class="form-message" hidden></div>
+          <button class="submit-button" type="submit">创建 Work Item</button>
+        </form>
+      </section>
+
+      <aside class="intake-note">
+        <span class="section-kicker">WHAT HAPPENS NEXT</span>
+        <h2>这里不是另一套任务数据库</h2>
+        <p>创建后直接写入项目的 <code>.multi-agent/</code>，生成稳定 WI 编号、WORK、BOARD、RELEASE 和 Owner 的 Role Task/State。</p>
+        <ol class="flow-list">
+          <li><b>1</b><span>分配新的 WI-NNNN</span></li>
+          <li><b>2</b><span>写回项目 Git 状态目录</span></li>
+          <li><b>3</b><span>默认 0 号下一次唤醒后接管拆分</span></li>
+          <li><b>4</b><span>总览立即显示任务与 Agent 状态</span></li>
+        </ol>
+      </aside>
+    </main>
+  </div>
+  <script src="/assets/add.js" defer></script>
+</body>
+</html>
