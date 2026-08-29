@@ -1,10 +1,10 @@
 ---
-name: oracle2-agent-orchestration
+name: multi-agent-software-orchestration
 description: 当用户要把长期软件项目拆给多个可替换 Agent 或定时任务协作，并通过 Git/GitHub、独立 worktree、0–8 号角色、独立 QA/确认/安全/基准门禁保持连续开发时使用。
-version: 1.0.0
+version: 1.0.1
 ---
 
-# Oracle² Multi-Agent Orchestration
+# Multi-Agent Software Orchestration
 
 把长周期软件开发组织成一条可以随时中断、随时换 Agent、再从 Git 状态恢复的流水线。
 
@@ -48,7 +48,7 @@ version: 1.0.0
 
 1. **Git 提交与分支**：代码和本地变更历史的权威来源。
 2. **远端 Git 平台**：共享代码、Issue/任务卡、PR、审核记录和可跨会话恢复的历史。
-3. **项目内 Oracle² 状态文件**：中央指令、角色任务、当前状态、决策、交接和发布门禁。
+3. **项目内多 Agent 协作状态文件**：中央指令、角色任务、当前状态、决策、交接和发布门禁。
 4. **AgentDock / 本地工具链**：连接真实电脑、运行命令、测试、构建、文件和部署操作。
 5. **聊天记录或定时任务文本**：只负责唤醒与携带最小启动参数，不作为长期真相来源。
 
@@ -59,7 +59,7 @@ version: 1.0.0
 0 号首次初始化项目时，优先创建：
 
 ```text
-.oracle2/
+.multi-agent/
 ├── COMMAND.md
 ├── BOARD.md
 ├── DECISIONS.md
@@ -114,7 +114,7 @@ version: 1.0.0
 - 自己的工作分支和 worktree 是否存在；
 - 工作区是否有未提交修改；
 - 远端是否有新的中央指令、任务、接口变更或已集成提交；
-- `.oracle2/COMMAND.md`、`BOARD.md`、自己的 `TASK.md`、`STATE.md` 和必要的 `DECISIONS.md`；
+- `.multi-agent/COMMAND.md`、`BOARD.md`、自己的 `TASK.md`、`STATE.md` 和必要的 `DECISIONS.md`；
 - 上一轮自己的最近提交和测试结果。
 
 不得仅凭上一次聊天记忆继续开发。
@@ -126,7 +126,7 @@ version: 1.0.0
 推荐命名：
 
 ```text
-oracle2/<role-id>-<task-slug>
+multi-agent/<role-id>-<task-slug>
 ```
 
 同一个角色也可以在不同任务间使用短期分支，但一个 worktree 在同一时刻只服务一个清晰任务。
@@ -401,7 +401,7 @@ NEXT: <下一轮第一步>
 一个定时任务的启动文本至少包含：
 
 ```text
-使用 oracle2-agent-orchestration Skill。
+使用 multi-agent-software-orchestration Skill。
 你是 <N> 号角色：<角色名称>。
 项目：<仓库或项目标识>。
 按 Skill 的恢复协议从 Git 和项目状态恢复，不依赖聊天历史。

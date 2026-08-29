@@ -123,6 +123,16 @@
       "digest": "sha256:7cd11afdc70b66c6ef41e690b2583fa551f0e5cfcab8f7a6221d309f8d68a4ff"
     },
     {
+      "name": "multi-agent-software-orchestration",
+      "version": "1.0.1",
+      "description": "当用户要把长期软件项目拆给多个可替换 Agent 或定时任务协作，并通过 Git/GitHub、独立 worktree、0–8 号角色、独立 QA/确认/安全/基准门禁保持连续开发时使用。",
+      "path": "skills/multi-agent-software-orchestration",
+      "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/multi-agent-software-orchestration",
+      "release_tag": "multi-agent-software-orchestration-v1.0.1",
+      "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/multi-agent-software-orchestration-v1.0.1/multi-agent-software-orchestration-v1.0.1.zip",
+      "digest": "sha256:2357c299738ea339e1acf188574bffa934c083a62e829c926089d6fd66eecc52"
+    },
+    {
       "name": "ntfy",
       "version": "0.2.5",
       "description": "Use this skill when sending notifications via ntfy.sh or self-hosted ntfy servers.",
@@ -141,16 +151,6 @@
       "release_tag": "openlist-v0.2.5",
       "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/openlist-v0.2.5/openlist-v0.2.5.zip",
       "digest": "sha256:663ac5d000d9f5a311d6f83fae9031cf43d407b361243ff13fe47357ece34005"
-    },
-    {
-      "name": "oracle2-agent-orchestration",
-      "version": "1.0.0",
-      "description": "当用户要把长期软件项目拆给多个可替换 Agent 或定时任务协作，并通过 Git/GitHub、独立 worktree、0–8 号角色、独立 QA/确认/安全/基准门禁保持连续开发时使用。",
-      "path": "skills/oracle2-agent-orchestration",
-      "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/oracle2-agent-orchestration",
-      "release_tag": "oracle2-agent-orchestration-v1.0.0",
-      "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/oracle2-agent-orchestration-v1.0.0/oracle2-agent-orchestration-v1.0.0.zip",
-      "digest": "sha256:730f02f0700a05292ba9fc2fe3caa4c5dc4ba29ec70b188c20c5658dcb64df11"
     },
     {
       "name": "personal-dev-guard",
