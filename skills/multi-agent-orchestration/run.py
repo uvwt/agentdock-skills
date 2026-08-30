@@ -29,6 +29,7 @@ STATE_GITIGNORE = ".DS_Store\n__pycache__/\n*.pyc\n"
 OWNERSHIP_MARKER = ".agentdock-project.json"
 WORK_ITEM_PATTERN = re.compile(r"^WI-(\d{4,})$")
 RECORD_PATTERN = re.compile(r"^R-(\d{8}T\d{12}Z)-([0-9a-f]{8})\.json$")
+BUSINESS_HEAD_PATTERN = re.compile(r"^[0-9a-fA-F]{4,40}$")
 SEATS = {
     "1": {"name": "Orchestrator", "kind": "orchestrator", "permanent": True},
     "2": {"name": "Independent Gatekeeper", "kind": "gatekeeper", "permanent": True},
@@ -191,6 +192,45 @@ def orchestration_write_lock(state_root: Path):
 
 def run_git(root: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
     return subprocess.run(["git", "-C", str(root), *args], text=True, capture_output=True, timeout=20, check=check)
+
+
+def required_business_git_root(project_fields: dict[str, str]) -> Path | None:
+    if project_fields.get("needs_business_git") != "true":
+        return None
+    raw_path = str(project_fields.get("repository_path") or "").strip()
+    if not raw_path:
+        raise SkillError("business_git_unavailable", "项目要求 business Git，但 PROJECT.md 未记录 repository_path", HTTPStatus.CONFLICT)
+    root = Path(raw_path).expanduser().resolve()
+    if not root.is_dir() or run_git(root, "rev-parse", "--is-inside-work-tree", check=False).returncode != 0:
+        raise SkillError("business_git_unavailable", f"业务路径不是可用 Git 仓库: {root}", HTTPStatus.CONFLICT)
+    return root
+
+
+def normalize_business_head_sha(root: Path, value: Any) -> str:
+    raw = str(value or "").strip()
+    if not BUSINESS_HEAD_PATTERN.fullmatch(raw):
+        raise SkillError("business_head_required", "business_head_sha 必须是 4-40 位十六进制 Git commit SHA")
+    resolved = run_git(root, "rev-parse", "--verify", f"{raw}^{{commit}}", check=False)
+    sha = resolved.stdout.strip().lower() if resolved.returncode == 0 else ""
+    if not re.fullmatch(r"[0-9a-f]{40}", sha):
+        raise SkillError("business_head_unresolvable", "business_head_sha 必须能唯一解析为当前业务仓库中的 40 位 commit SHA", HTTPStatus.CONFLICT)
+    return sha
+
+
+def current_business_head_sha(root: Path) -> str:
+    result = run_git(root, "rev-parse", "HEAD", check=False)
+    sha = result.stdout.strip().lower() if result.returncode == 0 else ""
+    if not re.fullmatch(r"[0-9a-f]{40}", sha):
+        raise SkillError("business_head_unavailable", "业务 Git 尚无可验证 HEAD commit", HTTPStatus.CONFLICT)
+    return sha
+
+
+def require_clean_business_git(root: Path) -> None:
+    result = run_git(root, "status", "--porcelain", check=False)
+    if result.returncode != 0:
+        raise SkillError("business_git_status_failed", "无法确认业务 Git 工作区是否 clean；正式 Gate / DONE 必须 fail closed", HTTPStatus.CONFLICT)
+    if any(line.strip() for line in result.stdout.splitlines()):
+        raise SkillError("business_git_dirty", "业务 Git 工作区存在未提交改动；正式 Gate / DONE 必须绑定可复现的 clean HEAD", HTTPStatus.CONFLICT)
 
 
 def init_git_repository(root: Path) -> None:
@@ -608,8 +648,6 @@ def _validate_record(record_type: str, sender: str, payload: dict[str, Any]) -> 
 def _validate_record_context(work_root: Path, record_type: str, sender: str, payload: dict[str, Any]) -> None:
     if record_type != "event":
         return
-    # 先执行 Record 自身的 sender/type 权限校验，避免上下文错误掩盖更根本的协议错误。
-    _validate_record(record_type, sender, payload)
     assignment_id = str(payload.get("assignment") or "").strip()
     kind = str(payload.get("kind") or "").strip()
     if not assignment_id:
@@ -625,6 +663,76 @@ def _validate_record_context(work_root: Path, record_type: str, sender: str, pay
     if kind == "cancelled" and sender == "1":
         return
     raise SkillError("assignment_owner_only", f"{sender} 号不能替 {assignee} 号更新 Assignment {assignment_id}", HTTPStatus.FORBIDDEN)
+
+
+def _latest_gate_record(work_root: Path) -> dict[str, Any] | None:
+    gates = [record for record in load_records(work_root) if record.get("type") == "gate"]
+    return gates[-1] if gates else None
+
+
+def _projected_gate_validity(work_root: Path, gate: dict[str, Any] | None) -> tuple[str, bool, str]:
+    record_verdict = str((gate or {}).get("verdict") or "PENDING").upper()
+    if gate is None or record_verdict != "PASS":
+        return record_verdict, False, ""
+
+    project_fields, _ = parse_frontmatter(work_root.parent.parent / "PROJECT.md")
+    if project_fields.get("needs_business_git") != "true":
+        return record_verdict, False, ""
+
+    gate_sha = str(gate.get("business_head_sha") or "").strip().lower()
+    if not re.fullmatch(r"[0-9a-f]{40}", gate_sha):
+        return "STALE", True, "final_gate_unbound"
+
+    try:
+        business_root = required_business_git_root(project_fields)
+        if current_business_head_sha(business_root) != gate_sha:
+            return "STALE", True, "business_head_changed"
+        require_clean_business_git(business_root)
+    except SkillError as exc:
+        return "STALE", True, exc.code
+    return record_verdict, False, ""
+
+
+def _validate_final_candidate(
+    project_fields: dict[str, str],
+    work_root: Path,
+    record_type: str,
+    payload: dict[str, Any],
+) -> None:
+    business_root = required_business_git_root(project_fields)
+    if record_type == "gate":
+        if business_root is None:
+            return
+        candidate_sha = normalize_business_head_sha(business_root, payload.get("business_head_sha"))
+        current_sha = current_business_head_sha(business_root)
+        if candidate_sha != current_sha:
+            raise SkillError("business_head_mismatch", "正式 Gate 只能绑定业务目标工作区当前 HEAD", HTTPStatus.CONFLICT)
+        require_clean_business_git(business_root)
+        payload["business_head_sha"] = candidate_sha
+        return
+
+    if record_type != "event":
+        return
+    kind = str(payload.get("kind") or "").strip()
+    is_completion = kind == "wi_completed" or (kind == "wi_status" and str(payload.get("status") or "").strip().upper() == "DONE")
+    if not is_completion:
+        return
+
+    gate = _latest_gate_record(work_root)
+    if gate is None or str(gate.get("verdict") or "").strip().upper() != "PASS":
+        raise SkillError("final_gate_required", "DONE 前必须存在 2 号对最终候选写入的最新 PASS Gate", HTTPStatus.CONFLICT)
+    if business_root is None:
+        return
+
+    gate_sha = str(gate.get("business_head_sha") or "").strip().lower()
+    if not re.fullmatch(r"[0-9a-f]{40}", gate_sha):
+        raise SkillError("final_gate_unbound", "最新 PASS Gate 未绑定 40 位 business_head_sha，不能 DONE", HTTPStatus.CONFLICT)
+    completion_sha = normalize_business_head_sha(business_root, payload.get("business_head_sha"))
+    current_sha = current_business_head_sha(business_root)
+    if completion_sha != gate_sha or completion_sha != current_sha:
+        raise SkillError("stale_final_gate", "业务 HEAD 已与正式 Gate 候选不一致；需要重新 Gate 后才能 DONE", HTTPStatus.CONFLICT)
+    require_clean_business_git(business_root)
+    payload["business_head_sha"] = completion_sha
 
 
 def _append_record_unlocked(work_root: Path, record_type: str, sender: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -661,7 +769,9 @@ def append_record(state_root: Path, work_item_id: str, record_type: str, sender:
     if project_fields.get("schema") != SCHEMA_VERSION:
         raise SkillError("unsupported_schema", f"只支持 schema={SCHEMA_VERSION}", HTTPStatus.CONFLICT)
     with orchestration_write_lock(state_root):
+        _validate_record(record_type, sender, payload)
         _validate_record_context(work_root, record_type, sender, payload)
+        _validate_final_candidate(project_fields, work_root, record_type, payload)
         # Record 是多 Agent 共享的唯一可写事实。这里不顺手重写 BOARD/STATE/RELEASE，
         # 否则多个 Worker 虽然写不同 Record 文件，仍会在共享投影上制造 Git 冲突。
         # 控制台直接从 Record 重放；需要持久化人类可读投影时由 rebuild_projections 显式生成。
@@ -783,12 +893,19 @@ def project_records(work_root: Path) -> dict[str, Any]:
             })
         else:
             seats.append({"id": seat_id, "name": meta["name"], "kind": meta["kind"], "status": "IDLE" if meta["permanent"] else "CLOSED", "assignment_id": "", "role": "", "task": "", "blockers": "", "last_event": "", "updated_at": ""})
+    record_verdict = str((latest_gate or {}).get("verdict") or "PENDING").upper()
+    projected_verdict, gate_stale, stale_reason = _projected_gate_validity(work_root, latest_gate)
+
     gate = {
         "profile": str((latest_gate or {}).get("profile") or "generic"),
-        "verdict": str((latest_gate or {}).get("verdict") or "PENDING").upper(),
+        "verdict": projected_verdict,
+        "record_verdict": record_verdict,
+        "business_head_sha": str((latest_gate or {}).get("business_head_sha") or ""),
         "checks": (latest_gate or {}).get("checks") if isinstance((latest_gate or {}).get("checks"), list) else [],
         "evidence": str((latest_gate or {}).get("evidence") or ""),
         "record_id": str((latest_gate or {}).get("id") or ""),
+        "stale": gate_stale,
+        "stale_reason": stale_reason,
         "waived": sorted(filter(None, waived_checks)),
     }
     return {"records": records, "seats": seats, "gate": gate, "status": work_status, "messages": messages}
@@ -813,7 +930,7 @@ def rebuild_work_item_projection(work_root: Path) -> None:
     gate = projection["gate"]
     check_lines = [f"- {item.get('id', 'check')}: {item.get('result', 'UNKNOWN')}" for item in gate["checks"] if isinstance(item, dict)]
     body = "# Gate Projection\n\n由最新 Gate Record 投影生成。\n\n" + ("\n".join(check_lines) if check_lines else "暂无 Gate Record。")
-    write_document(work_root / "RELEASE.md", {"work_item": work_root.name, "profile": gate["profile"], "verdict": gate["verdict"], "record_id": gate["record_id"], "updated_at": projection_time}, body)
+    write_document(work_root / "RELEASE.md", {"work_item": work_root.name, "profile": gate["profile"], "verdict": gate["verdict"], "record_verdict": gate["record_verdict"], "business_head_sha": gate["business_head_sha"], "stale": gate["stale"], "stale_reason": gate["stale_reason"], "record_id": gate["record_id"], "updated_at": projection_time}, body)
 
 
 def rebuild_projections(state_root: Path) -> dict[str, int]:

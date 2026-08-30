@@ -1,7 +1,7 @@
 ---
 name: multi-agent-orchestration
 description: 当用户要让多个 Agent 长期协作推进软件开发、研究、运维、内容、数据分析或受限工作区内的自由任务，并需要 1 号总管、2 号独立门禁、3/4/5 动态执行槽、可恢复状态和 Git 持久化时使用。
-version: 5.0.1
+version: 5.1.0
 ---
 
 # Multi-Agent Orchestration
@@ -14,8 +14,9 @@ version: 5.0.1
 用户目标
 → 1 号总管拆分、任职、分派
 → 3/4/5 按需执行并写回事实
-→ 2 号独立门禁
-→ 1 号收口、返工或交付
+→ 1 号整合 Worker evidence，形成唯一最终候选
+→ 2 号只对最终候选做唯一正式 Gate
+→ 1 号根据 Gate 收口、返工或 DONE
 ```
 
 聊天、定时任务和临时 Agent 都只是可替换的“身体”。**Record 是协作事实，STATE / BOARD / RELEASE 是由 Record 重放生成的投影；Git 负责持久化与同步，不等于通信协议本身。**
@@ -68,11 +69,12 @@ version: 5.0.1
 - 决定是否启用 3/4/5，以及每个槽本轮 Role；
 - 管依赖、优先级、冲突和范围；
 - 汇总 Event / Artifact / Message；
-- 向 2 号发起门禁请求；
+- 把已接受的 Worker 产物集成成唯一最终候选；
+- 向 2 号发起针对该最终候选的门禁请求；
 - 根据 Gate 结果决定放行、返工、换槽、暂停或取消；
 - 最终收口和交付。
 
-1 号可以自己执行必要工作，但不应因为“自己能做”就失去编排职责。
+1 号可以自己完成无冲突的 merge / cherry-pick / rebase 等机械集成，但不应因为“自己能做”就失去编排职责。跨 Work Item 出现语义、内容或实现冲突时，1 号负责决定顺序、范围和最终意图，再把需要实际改内容的冲突解决工作派给 Worker；不要让 1 号悄悄变成所有领域的实现者。
 
 ### 2 号：Independent Gatekeeper
 
@@ -180,6 +182,7 @@ wi_status（显式生命周期校正）
   "from": "2",
   "profile": "software",
   "verdict": "PASS",
+  "business_head_sha": "0123456789abcdef0123456789abcdef01234567",
   "checks": [
     {"id": "qa", "result": "PASS", "evidence": "..."},
     {"id": "security", "result": "PASS", "evidence": "..."}
@@ -189,6 +192,10 @@ wi_status（显式生命周期校正）
 ```
 
 Gate 的核心是非空 `profile`、`checks[]` 和 `verdict`。不同领域使用不同 profile，但不改变 Record 格式。
+
+当 Project 声明 `needs_business_git=true` 时，`business_head_sha` 必填，必须指向**业务目标 worktree 当前 clean HEAD**，不能填 Worker 隔离 worktree 的 HEAD。调用方可以输入唯一可解析的短 SHA，但 Record 落盘前必须正规化为 40 位 lowercase full SHA。HEAD 或最终候选一旦变化，旧 Gate 立即失效，必须重新 Gate；观察投影会把原始 PASS Gate 显示为 `STALE`，同时保留 `record_verdict=PASS` 作为历史事实。仅追加同一候选的 `artifact_ready` 证据不会让 Gate 自动失效。
+
+正式 Gate 只有这一处。Worker 自测、互审、验证脚本和中间检查都是 evidence，不再冒充第二套正式 Gate。
 
 ## 四、控制面与观察面
 
@@ -280,9 +287,12 @@ Git 继续保留，但职责分开。
 1 分派
 → 3/4/5 各自独立 branch / worktree
 → Event 引用 commit / Artifact
-→ 2 独立 Gate
-→ 1 集成
+→ 1 检查跨 Work Item 冲突并形成业务目标 worktree 的唯一最终候选
+→ 2 对该候选的 exact business_head_sha 做独立 Gate
+→ Gate PASS 后 1 使用同一 business_head_sha 收口 DONE
 ```
+
+业务目标 worktree 在正式 Gate 和 DONE 时都必须 clean。这样 Gate 绑定的是可复现 commit，而不是“HEAD + 未提交文件”的临时状态。是否 push 远端仍由用户授权决定，push 不是 DONE 的必要条件。
 
 研究、运维、内容等任务不应为了符合 Skill 形式强行创建业务 Git / worktree。
 
@@ -314,6 +324,8 @@ benchmark
 
 其他 profile 可以按实际任务使用更合适的检查，例如研究的来源质量、证据充分性、反证和结论一致性；运维的真实环境验证、服务健康、回滚和副作用。
 
+测试失败不能直接忽略，也不能为了“变绿”默认修改产品去迎合可疑断言。2 号应把失败归类为 `product_failure`、`test_failure`、`environment_failure` 或经明确批准的 `approved_skip`；无法完成分类时 Gate 不得 PASS。若确认是坏测试/脆弱测试，1 号派 Worker 修测试与 fixture，并保留最小复现和证据。
+
 ## 八、入口模式与工作根目录
 
 环境变量：
@@ -330,6 +342,8 @@ needs_business_git: true | false
 
 - `true`：需要真实业务路径，控制台展示业务 Git；
 - `false`：只建立 orchestration Project，不强迫创建业务仓库。
+
+`true` 还意味着正式 Gate 与 DONE 都必须绑定 `business_head_sha`。`wi_completed` 与 `wi_status=DONE` 使用完全相同的收口校验，不能用生命周期校正绕过最终 Gate；完成 Event 会把同一 40 位 `business_head_sha` 写回 Record。
 
 `greenfield_init` 在 `profile=software` 时默认创建业务 Git；其他 profile 默认可以只创建 orchestration Project，也可显式要求业务 Git。初始化动作本身不接受 `sync_git` / `push_remote`，避免把“创建本地项目”隐式升级成远端副作用；需要同步时从后续 `add_work_item` / Record 动作开始。
 
@@ -408,9 +422,11 @@ printf '%s' '{"skill_action":"status"}' | python3 run.py
 
 - 1 号已收口目标、分工与最终状态；
 - 需要的 3/4/5 Assignment 已有真实 Event / Artifact 证据；
-- 2 号完成与风险匹配的独立 Gate，或 1 号明确记录合理 waiver；
+- 1 号已经把接受的产物整合成唯一最终候选；
+- 2 号针对该最终候选完成与风险匹配的**唯一正式 Gate**，且最新正式 Gate 的当前投影仍有效为 `PASS`（不是历史 `record_verdict=PASS` 但已 `STALE`）；`gate_waiver` 只能解释具体 check 的例外，不能替代整个正式 Gate；
+- `needs_business_git=true` 时，Gate、DONE Event 与业务目标 worktree 当前 clean HEAD 的 40 位 `business_head_sha` 三者完全一致；HEAD 改变后旧 Gate 不可用于 DONE；
 - 业务产物按任务类型真实验证；
 - Record 已持久化，投影可由 Record 重建；
 - 下一次唤醒不依赖旧聊天窗口也能继续。
 
-一句话：**1 号管方向和分工，2 号独立检查，3/4/5 自由执行；控制面收口、观察面共享；Record 保存事实，Git 保存历史，投影负责展示。**
+一句话：**Worker 交 evidence，1 号形成最终候选，2 号只 Gate 最终候选，1 号只在同一候选仍成立时 DONE；Record 保存事实，Git 保存历史，投影负责展示。**
