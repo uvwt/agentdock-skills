@@ -14,6 +14,8 @@ function setMessage(text, kind, linkHref = "", linkText = "") {
 
 async function loadProjects() {
   const select = document.getElementById("project");
+  // 总览“在此项目新建”和完整表单都通过 ?project= 预选，不改后端契约。
+  const preselected = new URLSearchParams(location.search).get("project") || "";
   try {
     const response = await fetch("/api/snapshot", {cache: "no-store"});
     const payload = await response.json();
@@ -23,7 +25,15 @@ async function loadProjects() {
       const option = document.createElement("option");
       option.value = project.id;
       option.textContent = project.name;
+      if (project.id === preselected) option.selected = true;
       select.append(option);
+    }
+    if (preselected && select.value === preselected) {
+      const project = payload.data.projects.find(item => item.id === preselected);
+      const profile = document.getElementById("profile");
+      if (project?.profile && [...profile.options].some(option => option.value === project.profile)) {
+        profile.value = project.profile;
+      }
     }
     if (!payload.data.projects.length) {
       select.innerHTML = `<option value="">没有可用项目</option>`;

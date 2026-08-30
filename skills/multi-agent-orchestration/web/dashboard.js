@@ -5,8 +5,11 @@ const seatLabels = {
   "4": "Worker B",
   "5": "Worker C"
 };
+const OPEN_STATUSES = new Set(["BACKLOG", "ACTIVE", "REVIEW", "BLOCKED", "PAUSED"]);
 
 let latestSnapshot = null;
+let refreshInFlight = false;
+let pendingHighlightId = "";
 
 function escapeHtml(value = "") {
   return String(value).replace(/[&<>'"]/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[ch]));
@@ -37,6 +40,37 @@ function renderKeyValues(items) {
   return `<dl class="key-grid">${items.map(([key, value]) => `<div><dt>${escapeHtml(key)}</dt><dd>${emptyValue(value)}</dd></div>`).join("")}</dl>`;
 }
 
+function currentFilters() {
+  // DOM 初始化完成后，空输入也是用户的明确选择；不能再回退到 URL 里的旧条件。
+  const params = new URLSearchParams(location.search);
+  const searchInput = document.getElementById("workSearch");
+  const statusSelect = document.getElementById("statusFilter");
+  return {
+    query: (searchInput ? searchInput.value : (params.get("q") || "")).trim(),
+    status: statusSelect ? statusSelect.value : (params.get("status") || "open")
+  };
+}
+
+function writeFiltersToUrl() {
+  const {query, status} = currentFilters();
+  const params = new URLSearchParams(location.search);
+  if (query) params.set("q", query); else params.delete("q");
+  if (status && status !== "open") params.set("status", status); else params.delete("status");
+  const search = params.toString();
+  history.replaceState(null, "", `${location.pathname}${search ? `?${search}` : ""}${location.hash}`);
+}
+
+function itemMatchesFilters(item, filters) {
+  if (filters.status === "open") {
+    if (!OPEN_STATUSES.has(item.status)) return false;
+  } else if (filters.status !== "all" && item.status !== filters.status) {
+    return false;
+  }
+  if (!filters.query) return true;
+  const haystack = [item.id, item.title, item.goal, item.profile, item.priority, item.status].join(" ").toLowerCase();
+  return haystack.includes(filters.query.toLowerCase());
+}
+
 function renderSeat(agent, projectId) {
   const tasks = agent.assignments?.length
     ? agent.assignments.map(item => `<div class="agent-task"><b>${escapeHtml(item.work_item)}</b><span>${escapeHtml(item.role || item.task || "未命名 Assignment")}</span></div>`).join("")
@@ -62,7 +96,8 @@ function renderWorkItem(item, projectId) {
   const seatDots = activeSeats.length
     ? activeSeats.map(seat => `<span class="role-dot" title="${escapeHtml(seat.role || seatLabels[seat.id])}">${escapeHtml(seat.id)}</span>`).join("")
     : `<span class="muted">仅总管待接管</span>`;
-  return `<tr>
+  const highlight = item.id === pendingHighlightId ? " is-new" : "";
+  return `<tr class="work-row${highlight}" data-work-item="${escapeHtml(item.id)}">
     <td><strong class="wi-id">${escapeHtml(item.id)}</strong></td>
     <td><div class="work-title">${actionButton(item.title, "work-item", projectId, item.id)}</div></td>
     <td><span class="badge ${statusClass(item.status)}">${escapeHtml(item.status)}</span></td>
@@ -73,19 +108,38 @@ function renderWorkItem(item, projectId) {
   </tr>`;
 }
 
-function renderProject(project) {
-  const activeItems = project.work_items.filter(item => !["DONE", "CANCELLED"].includes(item.status));
-  const rows = activeItems.length ? activeItems.map(item => renderWorkItem(item, project.id)).join("") : `<tr><td colspan="7"><div class="empty-table">当前没有进行中的 Work Item</div></td></tr>`;
+function renderWorkCard(item, projectId) {
+  const activeSeats = (item.seats || []).filter(seat => !["CLOSED", "IDLE"].includes(seat.status));
+  const seatDots = activeSeats.length
+    ? activeSeats.map(seat => `<span class="role-dot" title="${escapeHtml(seat.role || seatLabels[seat.id])}">${escapeHtml(seat.id)}</span>`).join("")
+    : `<span class="muted">仅总管待接管</span>`;
+  const highlight = item.id === pendingHighlightId ? " is-new" : "";
+  return `<article class="work-card${highlight}" data-work-item="${escapeHtml(item.id)}">
+    <div class="work-card-top"><strong class="wi-id">${escapeHtml(item.id)}</strong><span class="badge ${statusClass(item.status)}">${escapeHtml(item.status)}</span></div>
+    <h3>${actionButton(item.title, "work-item", projectId, item.id)}</h3>
+    <div class="work-card-meta"><span class="badge ${statusClass(item.priority)}">${escapeHtml(item.priority)}</span><span>${escapeHtml(item.profile || "generic")}</span><div class="role-dots">${seatDots}</div></div>
+    ${renderGate(item.gate, projectId, item.id)}
+  </article>`;
+}
+
+function renderProject(project, filters) {
+  const matched = project.work_items.filter(item => itemMatchesFilters(item, filters));
+  const emptyText = project.work_items.length
+    ? "没有匹配当前搜索或状态筛选的 Work Item"
+    : "当前没有 Work Item";
+  const rows = matched.length ? matched.map(item => renderWorkItem(item, project.id)).join("") : `<tr><td colspan="7"><div class="empty-table">${emptyText}</div></td></tr>`;
+  const cards = matched.length ? matched.map(item => renderWorkCard(item, project.id)).join("") : `<div class="empty-table">${emptyText}</div>`;
   const stateBadge = project.initialized ? `<span class="badge good">${escapeHtml(project.schema || "STATE READY")}</span>` : `<span class="badge neutral">等待初始化</span>`;
-  return `<article class="project-panel">
+  return `<article class="project-panel" data-project="${escapeHtml(project.id)}">
     <div class="project-header">
       <div><div class="section-kicker">PROJECT · ${escapeHtml(project.profile || "generic")}</div><h2>${escapeHtml(project.name)}</h2></div>
-      <div class="project-meta">${stateBadge}<span>${project.counts.total} 个 Work Item</span>${actionButton("Project 详情", "project", project.id)}</div>
+      <div class="project-meta">${stateBadge}<span>${project.counts.total} 个 Work Item</span>${actionButton("Project 详情", "project", project.id)}<button class="inline-action project-create" type="button" data-compose-project="${escapeHtml(project.id)}">＋ 在此项目新建</button></div>
     </div>
     <div class="project-body">
       <section>
-        <div class="subhead"><h3>Work Items</h3><span>${project.counts.active} active · ${project.counts.blocked} blocked · ${project.counts.review} review</span></div>
-        <div class="table-wrap"><table><thead><tr><th>ID</th><th>任务</th><th>状态</th><th>优先级</th><th>Profile</th><th>Gate</th><th>Seats</th></tr></thead><tbody>${rows}</tbody></table></div>
+        <div class="subhead"><h3>Work Items</h3><span>${matched.length} 显示 · ${project.counts.active} active · ${project.counts.blocked} blocked · ${project.counts.review} review</span></div>
+        <div class="table-wrap desktop-table"><table><thead><tr><th>ID</th><th>任务</th><th>状态</th><th>优先级</th><th>Profile</th><th>Gate</th><th>Seats</th></tr></thead><tbody>${rows}</tbody></table></div>
+        <div class="work-cards mobile-cards">${cards}</div>
       </section>
       <section>
         <div class="subhead"><h3>1 / 2 + 3 / 4 / 5</h3><span>1 总管 · 2 门禁 · 最多 3 个动态 Worker</span></div>
@@ -157,7 +211,7 @@ function setDetailHash(action, projectId, itemId = "", seatId = "") {
   const params = new URLSearchParams({view: action, project: projectId});
   if (itemId) params.set("item", itemId);
   if (seatId) params.set("seat", seatId);
-  history.replaceState(null, "", `#${params.toString()}`);
+  history.replaceState(null, "", `${location.pathname}${location.search}#${params.toString()}`);
 }
 
 function showDetail(action, projectId, itemId = "", seatId = "", updateHash = true) {
@@ -182,7 +236,7 @@ function showDetail(action, projectId, itemId = "", seatId = "", updateHash = tr
 function closeDetail() {
   document.getElementById("detailView").hidden = true;
   document.getElementById("projects").hidden = false;
-  history.replaceState(null, "", location.pathname);
+  history.replaceState(null, "", `${location.pathname}${location.search}`);
 }
 
 function restoreDetailFromHash() {
@@ -191,28 +245,150 @@ function restoreDetailFromHash() {
   if (params.get("view") && params.get("project")) showDetail(params.get("view"), params.get("project"), params.get("item") || "", params.get("seat") || "", false);
 }
 
-async function refresh() {
+function syncComposerProjects(preferredId = "") {
+  const select = document.getElementById("composerProject");
+  const previous = preferredId || select.value;
+  select.replaceChildren();
+  for (const project of latestSnapshot?.projects || []) {
+    const option = document.createElement("option");
+    option.value = project.id;
+    option.textContent = project.name;
+    if (project.id === previous) option.selected = true;
+    select.append(option);
+  }
+  const hasProjects = Boolean(latestSnapshot?.projects?.length);
+  document.getElementById("openComposer").disabled = !hasProjects;
+  document.querySelector("#overviewTaskForm .submit-button").disabled = !hasProjects;
+  if (!hasProjects) {
+    select.innerHTML = `<option value="">没有可用项目</option>`;
+  }
+  const fullIntake = document.getElementById("fullIntakeLink");
+  const selected = select.value;
+  fullIntake.href = selected ? `/add?project=${encodeURIComponent(selected)}` : "/add";
+}
+
+function setComposerMessage(text, kind, linkHref = "", linkText = "") {
+  const node = document.getElementById("composerMessage");
+  node.hidden = false;
+  node.className = `form-message ${kind}`;
+  node.replaceChildren(document.createTextNode(text));
+  if (linkHref && linkText) {
+    node.append(document.createTextNode(" "));
+    const link = document.createElement("a");
+    link.href = linkHref;
+    link.textContent = linkText;
+    node.append(link);
+  }
+}
+
+function openComposer(projectId = "") {
+  const panel = document.getElementById("composer");
+  panel.hidden = false;
+  syncComposerProjects(projectId);
+  if (projectId) {
+    document.getElementById("composerProject").value = projectId;
+    const project = findProject(projectId);
+    if (project?.profile) document.getElementById("composerProfile").value = project.profile;
+  }
+  document.getElementById("composerTitle").focus();
+  panel.scrollIntoView({behavior: "smooth", block: "start"});
+}
+
+function closeComposer() {
+  document.getElementById("composer").hidden = true;
+  document.getElementById("composerMessage").hidden = true;
+}
+
+function setRefreshStatus(text, {busy = false, error = false} = {}) {
+  const label = document.getElementById("updatedAt");
+  const pulse = document.getElementById("refreshPulse");
+  const button = document.getElementById("refreshButton");
+  label.textContent = text;
+  label.classList.toggle("danger-text", error);
+  pulse.classList.toggle("is-refreshing", busy);
+  button.disabled = busy;
+  button.textContent = busy ? "刷新中…" : "刷新";
+}
+
+function updateFilterHint(filters, visibleCount, totalCount) {
+  const statusLabel = {
+    open: "进行中",
+    all: "全部",
+    ACTIVE: "Active",
+    REVIEW: "Review",
+    BLOCKED: "Blocked",
+    PAUSED: "Paused",
+    BACKLOG: "Backlog",
+    DONE: "Done",
+    CANCELLED: "Cancelled"
+  }[filters.status] || filters.status;
+  const queryText = filters.query ? `，关键词 “${filters.query}”` : "";
+  document.getElementById("filterHint").textContent = `状态：${statusLabel}${queryText} · 显示 ${visibleCount}/${totalCount}`;
+}
+
+function renderBoard() {
+  if (!latestSnapshot) return;
+  const filters = currentFilters();
+  const {totals, projects, generated_at} = latestSnapshot;
+  document.getElementById("summary").innerHTML = [
+    summaryCard("项目", totals.projects, "已接入控制台"),
+    summaryCard("进行中", totals.active_work_items, "Active / Review"),
+    summaryCard("参与座位", totals.working_agents, "含总管与动态 Worker"),
+    summaryCard("阻塞", totals.blocked_work_items, "需要 1 号收口")
+  ].join("");
+  const visibleCount = projects.reduce((count, project) => count + project.work_items.filter(item => itemMatchesFilters(item, filters)).length, 0);
+  const totalCount = projects.reduce((count, project) => count + project.work_items.length, 0);
+  updateFilterHint(filters, visibleCount, totalCount);
+  document.getElementById("projects").innerHTML = projects.length ? projects.map(project => renderProject(project, filters)).join("") : `<div class="loading">没有配置 Project</div>`;
+  syncComposerProjects();
+  if (!document.getElementById("detailView").hidden) restoreDetailFromHash();
+  const stamp = generated_at ? new Date(generated_at).toLocaleTimeString("zh-CN", {hour12: false}) : "";
+  if (!refreshInFlight) setRefreshStatus(stamp ? `本机持久化状态 · ${stamp} 更新` : "本机持久化状态");
+}
+
+async function refresh(reason = "auto") {
+  // 刷新只重绘总览投影，不重建 composer，避免输入中的创建表单被 5 秒轮询清掉。
+  if (refreshInFlight) return;
+  refreshInFlight = true;
+  if (reason === "manual") setRefreshStatus("正在手动刷新…", {busy: true});
+  else document.getElementById("refreshPulse").classList.add("is-refreshing");
   try {
     const response = await fetch("/api/snapshot", {cache: "no-store"});
     const payload = await response.json();
     if (!payload.ok) throw new Error(payload.error?.message || "读取失败");
     latestSnapshot = payload.data;
-    const {totals, projects, generated_at} = latestSnapshot;
-    document.getElementById("summary").innerHTML = [
-      summaryCard("项目", totals.projects, "已接入控制台"),
-      summaryCard("进行中", totals.active_work_items, "Active / Review"),
-      summaryCard("参与座位", totals.working_agents, "含总管与动态 Worker"),
-      summaryCard("阻塞", totals.blocked_work_items, "需要 1 号收口")
-    ].join("");
-    document.getElementById("projects").innerHTML = projects.length ? projects.map(renderProject).join("") : `<div class="loading">没有配置 Project</div>`;
-    document.getElementById("updatedAt").textContent = `· ${new Date(generated_at).toLocaleTimeString("zh-CN", {hour12:false})} 更新`;
-    restoreDetailFromHash();
+    renderBoard();
+    // 新建任务只高亮当前这次绘制；下一轮刷新按普通任务展示。
+    pendingHighlightId = "";
+    const stamp = new Date(latestSnapshot.generated_at).toLocaleTimeString("zh-CN", {hour12: false});
+    setRefreshStatus(reason === "manual" ? `已刷新 · ${stamp}` : `本机持久化状态 · ${stamp} 更新`);
   } catch (error) {
-    document.getElementById("projects").innerHTML = `<div class="error-panel">无法读取状态：${escapeHtml(error.message)}</div>`;
+    if (!latestSnapshot) {
+      document.getElementById("projects").innerHTML = `<div class="error-panel">无法读取状态：${escapeHtml(error.message)}</div>`;
+    }
+    setRefreshStatus(`刷新失败：${error.message}`, {error: true});
+  } finally {
+    refreshInFlight = false;
+    document.getElementById("refreshPulse").classList.remove("is-refreshing");
+  }
+}
+
+function restoreFiltersFromUrl() {
+  const params = new URLSearchParams(location.search);
+  const search = document.getElementById("workSearch");
+  const status = document.getElementById("statusFilter");
+  if (params.get("q")) search.value = params.get("q");
+  if (params.get("status") && [...status.options].some(option => option.value === params.get("status"))) {
+    status.value = params.get("status");
   }
 }
 
 document.getElementById("projects").addEventListener("click", event => {
+  const compose = event.target.closest("[data-compose-project]");
+  if (compose) {
+    openComposer(compose.dataset.composeProject);
+    return;
+  }
   const button = event.target.closest("[data-action]");
   if (button) showDetail(button.dataset.action, button.dataset.project, button.dataset.item || "", button.dataset.seat || "");
 });
@@ -223,6 +399,63 @@ document.getElementById("detailContent").addEventListener("click", event => {
 });
 
 document.getElementById("detailClose").addEventListener("click", closeDetail);
+document.getElementById("openComposer").addEventListener("click", () => openComposer(document.getElementById("composerProject").value));
+document.getElementById("closeComposer").addEventListener("click", closeComposer);
+document.getElementById("refreshButton").addEventListener("click", () => refresh("manual"));
+document.getElementById("workSearch").addEventListener("input", () => { writeFiltersToUrl(); renderBoard(); });
+document.getElementById("statusFilter").addEventListener("change", () => { writeFiltersToUrl(); renderBoard(); });
+document.getElementById("composerProject").addEventListener("change", () => {
+  const projectId = document.getElementById("composerProject").value;
+  const project = findProject(projectId);
+  const profile = document.getElementById("composerProfile");
+  if (project?.profile && [...profile.options].some(option => option.value === project.profile)) {
+    profile.value = project.profile;
+  }
+  document.getElementById("fullIntakeLink").href = projectId ? `/add?project=${encodeURIComponent(projectId)}` : "/add";
+});
 window.addEventListener("hashchange", restoreDetailFromHash);
+
+document.getElementById("overviewTaskForm").addEventListener("submit", async event => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const button = form.querySelector("button[type=submit]");
+  button.disabled = true;
+  button.textContent = "正在创建…";
+  const payload = Object.fromEntries(new FormData(form).entries());
+  payload.sync_git = document.getElementById("composerSyncGit").checked;
+  try {
+    const response = await fetch("/api/work-items", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json();
+    if (!result.ok) throw new Error(result.error?.message || "创建失败");
+    const sync = result.git_sync || {status: "skipped", reason: "unknown"};
+    const syncText = sync.status === "synced"
+      ? `Git 已同步${sync.commit ? ` · ${sync.commit}` : ""}`
+      : sync.status === "committed_not_pushed"
+        ? (sync.reason === "push_not_requested"
+          ? `已本地提交 ${sync.commit || ""}，未请求远端 push`
+          : `已提交 ${sync.commit || ""}，但 push 未完成（${sync.reason}）`)
+        : sync.status === "failed"
+          ? `Git 同步失败（${sync.reason}）`
+          : `未同步 Git（${sync.reason}）`;
+    const kind = ["synced", "skipped"].includes(sync.status) || (sync.status === "committed_not_pushed" && sync.reason === "push_not_requested") ? "success" : "warning";
+    pendingHighlightId = result.data.id;
+    setComposerMessage(`已创建 ${result.data.id} · ${result.data.title}。${syncText}。`, kind);
+    document.getElementById("composerTitle").value = "";
+    document.getElementById("composerGoal").value = "";
+    document.getElementById("composerAcceptance").value = "";
+    await refresh("manual");
+  } catch (error) {
+    setComposerMessage(error.message, "error");
+  } finally {
+    button.disabled = false;
+    button.textContent = "创建 Work Item";
+  }
+});
+
+restoreFiltersFromUrl();
 refresh();
-setInterval(refresh, 5000);
+setInterval(() => refresh("auto"), 5000);

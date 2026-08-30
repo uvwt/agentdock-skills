@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 import threading
 import unittest
+from unittest import mock
 from http.client import HTTPConnection
 from pathlib import Path
 
@@ -42,6 +43,12 @@ class OrchestrationTest(unittest.TestCase):
         self.tempdir = tempfile.TemporaryDirectory()
         self.root = Path(self.tempdir.name) / "demo"
         self.root.mkdir()
+        subprocess.run(["git", "-C", str(self.root), "init", "-b", "main"], check=True, capture_output=True)
+        subprocess.run(["git", "-C", str(self.root), "config", "user.name", "Skill Test"], check=True)
+        subprocess.run(["git", "-C", str(self.root), "config", "user.email", "skill-test@example.invalid"], check=True)
+        (self.root / "README.md").write_text("demo\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(self.root), "add", "README.md"], check=True)
+        subprocess.run(["git", "-C", str(self.root), "commit", "-m", "init"], check=True, capture_output=True)
         self.workspace = Path(self.tempdir.name) / "multi-agent-orchestration"
         self.previous_workspace = os.environ.get(run.WORKSPACE_ENV)
         os.environ[run.WORKSPACE_ENV] = str(self.workspace)
@@ -61,6 +68,19 @@ class OrchestrationTest(unittest.TestCase):
         payload.update(overrides)
         item, _ = run.create_work_item(self.project, payload)
         return item
+
+    def business_head(self, *, short: bool = False) -> str:
+        args = ["git", "-C", str(self.root), "rev-parse"]
+        if short:
+            args.append("--short")
+        args.append("HEAD")
+        return subprocess.run(args, text=True, capture_output=True, check=True).stdout.strip()
+
+    def commit_business_change(self, filename: str, content: str) -> str:
+        (self.root / filename).write_text(content, encoding="utf-8")
+        subprocess.run(["git", "-C", str(self.root), "add", filename], check=True)
+        subprocess.run(["git", "-C", str(self.root), "commit", "-m", f"test: update {filename}"], check=True, capture_output=True)
+        return self.business_head()
 
     def test_new_work_item_defaults_to_orchestrator_and_record_truth(self) -> None:
         item = self.create()
@@ -156,12 +176,137 @@ class OrchestrationTest(unittest.TestCase):
             item["id"],
             "gate",
             "2",
-            {"profile": "software", "verdict": "PASS", "checks": [{"id": "qa", "result": "PASS"}]},
+            {"profile": "software", "verdict": "PASS", "business_head_sha": self.business_head(short=True), "checks": [{"id": "qa", "result": "PASS"}]},
         )
         refreshed = run.read_work_item(self.state_root / "work-items" / item["id"])
         self.assertEqual(gate["id"], refreshed["gate"]["record_id"])
         self.assertEqual("PASS", refreshed["gate"]["verdict"])
+        self.assertEqual(self.business_head(), gate["business_head_sha"])
+        self.assertEqual(self.business_head(), refreshed["gate"]["business_head_sha"])
         self.assertEqual([{"id": "qa", "result": "PASS"}], refreshed["gate"]["checks"])
+
+    def test_business_gate_requires_current_clean_head(self) -> None:
+        item = self.create()
+        with self.assertRaises(run.SkillError) as context:
+            run.append_record(self.state_root, item["id"], "gate", "2", {"profile": "software", "verdict": "PASS", "checks": []})
+        self.assertEqual("business_head_required", context.exception.code)
+
+        old_head = self.business_head()
+        new_head = self.commit_business_change("feature.txt", "v1\n")
+        with self.assertRaises(run.SkillError) as context:
+            run.append_record(self.state_root, item["id"], "gate", "2", {"profile": "software", "verdict": "PASS", "business_head_sha": old_head, "checks": []})
+        self.assertEqual("business_head_mismatch", context.exception.code)
+
+        (self.root / "feature.txt").write_text("dirty\n", encoding="utf-8")
+        with self.assertRaises(run.SkillError) as context:
+            run.append_record(self.state_root, item["id"], "gate", "2", {"profile": "software", "verdict": "PASS", "business_head_sha": new_head, "checks": []})
+        self.assertEqual("business_git_dirty", context.exception.code)
+
+    def test_done_requires_latest_pass_gate_bound_to_current_head(self) -> None:
+        item = self.create()
+        head = self.business_head()
+        with self.assertRaises(run.SkillError) as context:
+            run.append_record(self.state_root, item["id"], "event", "1", {"kind": "wi_completed", "business_head_sha": head})
+        self.assertEqual("final_gate_required", context.exception.code)
+
+        run.append_record(self.state_root, item["id"], "gate", "2", {"profile": "software", "verdict": "PASS", "business_head_sha": head[:8], "checks": []})
+        completed = run.append_record(self.state_root, item["id"], "event", "1", {"kind": "wi_completed", "business_head_sha": head[:10]})
+        self.assertEqual(head, completed["business_head_sha"])
+        self.assertEqual("DONE", run.read_work_item(self.state_root / "work-items" / item["id"])["status"])
+
+    def test_done_rejects_stale_gate_after_business_head_changes(self) -> None:
+        item = self.create()
+        first_head = self.business_head()
+        run.append_record(self.state_root, item["id"], "gate", "2", {"profile": "software", "verdict": "PASS", "business_head_sha": first_head, "checks": []})
+        self.commit_business_change("after-gate.txt", "changed\n")
+
+        projected = run.read_work_item(self.state_root / "work-items" / item["id"])["gate"]
+        self.assertEqual("STALE", projected["verdict"])
+        self.assertEqual("PASS", projected["record_verdict"])
+        self.assertTrue(projected["stale"])
+        self.assertEqual("business_head_changed", projected["stale_reason"])
+
+        with self.assertRaises(run.SkillError) as context:
+            run.append_record(self.state_root, item["id"], "event", "1", {"kind": "wi_completed", "business_head_sha": first_head})
+        self.assertEqual("stale_final_gate", context.exception.code)
+
+    def test_done_requires_business_sha_and_clean_worktree_after_gate(self) -> None:
+        item = self.create()
+        head = self.business_head()
+        run.append_record(self.state_root, item["id"], "gate", "2", {"profile": "software", "verdict": "PASS", "business_head_sha": head, "checks": []})
+
+        with self.assertRaises(run.SkillError) as context:
+            run.append_record(self.state_root, item["id"], "event", "1", {"kind": "wi_completed"})
+        self.assertEqual("business_head_required", context.exception.code)
+
+        (self.root / "README.md").write_text("dirty after gate\n", encoding="utf-8")
+        with self.assertRaises(run.SkillError) as context:
+            run.append_record(self.state_root, item["id"], "event", "1", {"kind": "wi_completed", "business_head_sha": head})
+        self.assertEqual("business_git_dirty", context.exception.code)
+        projected = run.read_work_item(self.state_root / "work-items" / item["id"])["gate"]
+        self.assertEqual("STALE", projected["verdict"])
+        self.assertEqual("business_git_dirty", projected["stale_reason"])
+
+    def test_git_status_failure_fails_closed(self) -> None:
+        failure = subprocess.CompletedProcess(["git"], 128, stdout="", stderr="status failed")
+        with mock.patch.object(run, "run_git", return_value=failure):
+            with self.assertRaises(run.SkillError) as context:
+                run.require_clean_business_git(self.root)
+        self.assertEqual("business_git_status_failed", context.exception.code)
+
+    def test_ambiguous_short_business_sha_is_rejected(self) -> None:
+        ambiguous = subprocess.CompletedProcess(["git"], 128, stdout="", stderr="short object ID dead is ambiguous")
+        with mock.patch.object(run, "run_git", return_value=ambiguous):
+            with self.assertRaises(run.SkillError) as context:
+                run.normalize_business_head_sha(self.root, "dead")
+        self.assertEqual("business_head_unresolvable", context.exception.code)
+
+    def test_artifact_ready_on_same_head_does_not_stale_gate(self) -> None:
+        item = self.create()
+        assignment = run.append_record(self.state_root, item["id"], "assignment", "1", {"assignee": "3", "role": "builder", "title": "生成证据"})
+        head = self.business_head()
+        run.append_record(self.state_root, item["id"], "gate", "2", {"profile": "software", "verdict": "PASS", "business_head_sha": head, "checks": []})
+        run.append_record(self.state_root, item["id"], "event", "3", {"kind": "artifact_ready", "assignment": assignment["id"], "artifact": "evidence.txt"})
+
+        projected = run.read_work_item(self.state_root / "work-items" / item["id"])["gate"]
+        self.assertEqual("PASS", projected["verdict"])
+        self.assertFalse(projected["stale"])
+        completed = run.append_record(self.state_root, item["id"], "event", "1", {"kind": "wi_completed", "business_head_sha": head})
+        self.assertEqual(head, completed["business_head_sha"])
+
+    def test_wi_status_done_uses_same_final_gate_rule(self) -> None:
+        item = self.create()
+        head = self.business_head()
+        with self.assertRaises(run.SkillError) as context:
+            run.append_record(self.state_root, item["id"], "event", "1", {"kind": "wi_status", "status": "DONE", "business_head_sha": head})
+        self.assertEqual("final_gate_required", context.exception.code)
+
+        run.append_record(self.state_root, item["id"], "gate", "2", {"profile": "software", "verdict": "PASS", "business_head_sha": head, "checks": []})
+        status_record = run.append_record(self.state_root, item["id"], "event", "1", {"kind": "wi_status", "status": "DONE", "business_head_sha": head})
+        self.assertEqual(head, status_record["business_head_sha"])
+        self.assertEqual("DONE", run.read_work_item(self.state_root / "work-items" / item["id"])["status"])
+
+    def test_latest_non_pass_gate_blocks_done(self) -> None:
+        item = self.create()
+        head = self.business_head()
+        run.append_record(self.state_root, item["id"], "gate", "2", {"profile": "software", "verdict": "PASS", "business_head_sha": head, "checks": []})
+        run.append_record(self.state_root, item["id"], "gate", "2", {"profile": "software", "verdict": "FAIL", "business_head_sha": head, "checks": [{"id": "qa", "result": "FAIL"}]})
+        with self.assertRaises(run.SkillError) as context:
+            run.append_record(self.state_root, item["id"], "event", "1", {"kind": "wi_completed", "business_head_sha": head})
+        self.assertEqual("final_gate_required", context.exception.code)
+
+    def test_non_business_done_requires_gate_but_not_business_sha(self) -> None:
+        project = run.normalize_projects([{"id": "research-close", "name": "Research Close", "needs_business_git": False, "profile": "research"}])[0]
+        state_root = self.workspace / run.ORCHESTRATIONS_DIR / "research-close"
+        item, _ = run.create_work_item(project, {"title": "研究收口", "goal": "形成结论", "profile": "research"})
+        with self.assertRaises(run.SkillError) as context:
+            run.append_record(state_root, item["id"], "event", "1", {"kind": "wi_completed"})
+        self.assertEqual("final_gate_required", context.exception.code)
+
+        run.append_record(state_root, item["id"], "gate", "2", {"profile": "research", "verdict": "PASS", "checks": []})
+        completed = run.append_record(state_root, item["id"], "event", "1", {"kind": "wi_completed"})
+        self.assertNotIn("business_head_sha", completed)
+        self.assertEqual("DONE", run.read_work_item(state_root / "work-items" / item["id"])["status"])
 
     def test_gatekeeper_assignment_status_is_not_changed_by_gate_record(self) -> None:
         item = self.create()
@@ -178,7 +323,7 @@ class OrchestrationTest(unittest.TestCase):
             item["id"],
             "gate",
             "2",
-            {"profile": "generic", "verdict": "PASS", "checks": [{"id": "evidence", "result": "PASS"}]},
+            {"profile": "generic", "verdict": "PASS", "business_head_sha": self.business_head(), "checks": [{"id": "evidence", "result": "PASS"}]},
         )
         refreshed = run.read_work_item(self.state_root / "work-items" / item["id"])
         gatekeeper = next(seat for seat in refreshed["seats"] if seat["id"] == "2")
@@ -237,7 +382,9 @@ class OrchestrationTest(unittest.TestCase):
         self.assertEqual("REVIEW", run.read_work_item(self.state_root / "work-items" / item["id"])["status"])
         run.append_record(self.state_root, item["id"], "event", "1", {"kind": "wi_status", "status": "BLOCKED"})
         self.assertEqual("BLOCKED", run.read_work_item(self.state_root / "work-items" / item["id"])["status"])
-        run.append_record(self.state_root, item["id"], "event", "1", {"kind": "wi_status", "status": "DONE"})
+        head = self.business_head()
+        run.append_record(self.state_root, item["id"], "gate", "2", {"profile": "software", "verdict": "PASS", "business_head_sha": head, "checks": []})
+        run.append_record(self.state_root, item["id"], "event", "1", {"kind": "wi_status", "status": "DONE", "business_head_sha": head})
         self.assertEqual("DONE", run.read_work_item(self.state_root / "work-items" / item["id"])["status"])
         with self.assertRaises(run.SkillError) as context:
             run.append_record(self.state_root, item["id"], "event", "1", {"kind": "wi_status", "status": "UNKNOWN"})
@@ -600,13 +747,7 @@ class OrchestrationTest(unittest.TestCase):
 
     @unittest.skipUnless(shutil.which("git"), "requires git")
     def test_git_sync_only_touches_orchestration_repo(self) -> None:
-        subprocess.run(["git", "-C", str(self.root), "init", "-b", "main"], check=True, capture_output=True)
-        subprocess.run(["git", "-C", str(self.root), "config", "user.name", "Skill Test"], check=True)
-        subprocess.run(["git", "-C", str(self.root), "config", "user.email", "skill-test@example.invalid"], check=True)
-        (self.root / "README.md").write_text("demo\n", encoding="utf-8")
-        subprocess.run(["git", "-C", str(self.root), "add", "README.md"], check=True)
-        subprocess.run(["git", "-C", str(self.root), "commit", "-m", "init"], check=True, capture_output=True)
-        business_head = subprocess.run(["git", "-C", str(self.root), "rev-parse", "HEAD"], text=True, capture_output=True, check=True).stdout.strip()
+        business_head = self.business_head()
 
         item = self.create()
         subprocess.run(["git", "-C", str(self.state_root), "config", "user.name", "Skill Test"], check=True)
