@@ -123,6 +123,16 @@
       "digest": "sha256:7cd11afdc70b66c6ef41e690b2583fa551f0e5cfcab8f7a6221d309f8d68a4ff"
     },
     {
+      "name": "multi-agent-orchestration",
+      "version": "5.0.1",
+      "description": "当用户要让多个 Agent 长期协作推进软件开发、研究、运维、内容、数据分析或受限工作区内的自由任务，并需要 1 号总管、2 号独立门禁、3/4/5 动态执行槽、可恢复状态和 Git 持久化时使用。",
+      "path": "skills/multi-agent-orchestration",
+      "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/multi-agent-orchestration",
+      "release_tag": "multi-agent-orchestration-v5.0.1",
+      "download_url": "https://github.com/uvwt/agentdock-skills/releases/download/multi-agent-orchestration-v5.0.1/multi-agent-orchestration-v5.0.1.zip",
+      "digest": "sha256:9b726e277f3ecae1415a40f0829570cc38f92ff89984f9b3b0bc1183421d3dc5"
+    },
+    {
       "name": "ntfy",
       "version": "0.2.5",
       "description": "Use this skill when sending notifications via ntfy.sh or self-hosted ntfy servers.",

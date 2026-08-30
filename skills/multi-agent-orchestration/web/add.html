@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>添加任务 · Multi-Agent Control Tower</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+  <div class="shell narrow-shell">
+    <header class="topbar">
+      <div><div class="eyebrow">WORK ITEM INTAKE</div><h1>添加任务</h1></div>
+      <nav class="nav"><a class="nav-link" href="/">← 返回总览</a></nav>
+    </header>
+    <main class="intake-layout">
+      <section class="form-card">
+        <div class="section-heading"><div><span class="section-kicker">NEW WORK ITEM</span><h2>把一件事交给总管</h2></div><span class="badge neutral">默认由 1 号接管</span></div>
+        <form id="taskForm">
+          <label><span>项目</span><select id="project" name="project_id" required></select></label>
+          <label><span>任务标题</span><input id="title" name="title" maxlength="180" placeholder="例如：调查服务掉线并形成可验证结论" required></label>
+          <label><span>目标 / 要求</span><textarea id="goal" name="goal" rows="7" maxlength="4000" placeholder="描述要完成什么、必要边界和验收重点。1 号会决定是否启用 3/4/5。" required></textarea></label>
+          <label><span>验收重点（可选）</span><textarea id="acceptance" name="acceptance" rows="3" maxlength="2000" placeholder="留空时由 1 号补充与任务风险匹配的验收条件。"></textarea></label>
+          <div class="form-grid">
+            <label><span>优先级</span><select id="priority" name="priority"><option value="NORMAL">Normal</option><option value="HIGH">High</option><option value="URGENT">Urgent</option><option value="LOW">Low</option></select></label>
+            <label><span>Profile</span><select id="profile" name="profile"><option value="generic">Generic</option><option value="software">Software</option><option value="research">Research</option><option value="operations">Operations</option><option value="content">Content</option><option value="custom">Custom</option></select></label>
+          </div>
+          <label class="check-row"><input id="syncGit" name="sync_git" type="checkbox" checked><span><strong>创建后同步 orchestration Git</strong><small>只提交本机独立编排仓库；不会推送远端、提交业务仓库或创建业务 worktree。</small></span></label>
+          <div id="formMessage" class="form-message" hidden></div>
+          <button class="submit-button" type="submit">创建 Work Item</button>
+        </form>
+      </section>
+      <aside class="intake-note">
+        <span class="section-kicker">WHAT HAPPENS NEXT</span>
+        <h2>先记录事实，再由总管任职</h2>
+        <p>创建后生成稳定 WI 编号和首条不可变 Assignment，默认交给 1 号。不会为了凑角色预建 3/4/5，也不会提前伪造 Gate 状态。</p>
+        <ol class="flow-list"><li><b>1</b><span>创建 WI-NNNN</span></li><li><b>2</b><span>user → 1 写首条 Assignment</span></li><li><b>3</b><span>1 号按需任职 3/4/5</span></li><li><b>4</b><span>2 号在需要时独立 Gate</span></li></ol>
+      </aside>
+    </main>
+  </div>
+  <script src="/assets/add.js" defer></script>
+</body>
+</html>
