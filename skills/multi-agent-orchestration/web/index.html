@@ -15,16 +15,64 @@
       </div>
       <nav class="nav">
         <a class="nav-link active" href="/">总览</a>
-        <a class="nav-link primary" href="/add">＋ 添加任务</a>
+        <a class="nav-link" href="/add" id="fullIntakeLink">完整表单</a>
+        <button class="nav-link primary" id="openComposer" type="button">＋ 添加任务</button>
       </nav>
     </header>
     <main>
       <section class="hero-row">
         <div>
           <p class="lede">1 号总管、2 号独立门禁、3/4/5 动态 Worker。控制面收口、观察面共享；不可变 Record 保存协作事实，Git 负责持久化。</p>
-          <div class="live"><span class="pulse"></span> 本机持久化状态 <span id="updatedAt">正在读取…</span></div>
+          <div class="live" aria-live="polite">
+            <span class="pulse" id="refreshPulse"></span>
+            <span id="updatedAt">正在读取…</span>
+            <button class="refresh-button" id="refreshButton" type="button">刷新</button>
+          </div>
         </div>
         <div id="summary" class="summary-grid" aria-live="polite"></div>
+      </section>
+      <section class="board-toolbar" aria-label="任务检索">
+        <label class="toolbar-field search-field">
+          <span>搜索任务</span>
+          <input id="workSearch" type="search" placeholder="按编号、标题、目标或 profile 过滤" autocomplete="off">
+        </label>
+        <label class="toolbar-field">
+          <span>状态</span>
+          <select id="statusFilter">
+            <option value="open">进行中</option>
+            <option value="all">全部</option>
+            <option value="ACTIVE">Active</option>
+            <option value="REVIEW">Review</option>
+            <option value="BLOCKED">Blocked</option>
+            <option value="PAUSED">Paused</option>
+            <option value="BACKLOG">Backlog</option>
+            <option value="DONE">Done</option>
+            <option value="CANCELLED">Cancelled</option>
+          </select>
+        </label>
+        <p class="filter-hint" id="filterHint">显示进行中的 Work Item</p>
+      </section>
+      <section id="composer" class="composer" hidden>
+        <div class="section-heading">
+          <div>
+            <span class="section-kicker">NEW WORK ITEM</span>
+            <h2>在总览直接交给总管</h2>
+          </div>
+          <button class="detail-close" id="closeComposer" type="button">关闭</button>
+        </div>
+        <form id="overviewTaskForm">
+          <label><span>项目</span><select id="composerProject" name="project_id" required></select></label>
+          <label><span>任务标题</span><input id="composerTitle" name="title" maxlength="180" placeholder="例如：调查服务掉线并形成可验证结论" required></label>
+          <label><span>目标 / 要求</span><textarea id="composerGoal" name="goal" rows="5" maxlength="4000" placeholder="描述要完成什么、必要边界和验收重点。1 号会决定是否启用 3/4/5。" required></textarea></label>
+          <label><span>验收重点（可选）</span><textarea id="composerAcceptance" name="acceptance" rows="3" maxlength="2000" placeholder="留空时由 1 号补充与任务风险匹配的验收条件。"></textarea></label>
+          <div class="form-grid">
+            <label><span>优先级</span><select id="composerPriority" name="priority"><option value="NORMAL">Normal</option><option value="HIGH">High</option><option value="URGENT">Urgent</option><option value="LOW">Low</option></select></label>
+            <label><span>Profile</span><select id="composerProfile" name="profile"><option value="generic">Generic</option><option value="software">Software</option><option value="research">Research</option><option value="operations">Operations</option><option value="content">Content</option><option value="custom">Custom</option></select></label>
+          </div>
+          <label class="check-row"><input id="composerSyncGit" name="sync_git" type="checkbox" checked><span><strong>创建后同步 orchestration Git</strong><small>只提交本机独立编排仓库；不会推送远端、提交业务仓库或创建业务 worktree。</small></span></label>
+          <div id="composerMessage" class="form-message" hidden></div>
+          <button class="submit-button" type="submit">创建 Work Item</button>
+        </form>
       </section>
       <section id="projects" class="projects" aria-live="polite"><div class="loading">正在重放 orchestration Record…</div></section>
       <section id="detailView" class="detail-view" aria-live="polite" aria-label="详情" hidden>
