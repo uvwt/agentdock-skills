@@ -1,7 +1,7 @@
 ---
 name: multi-agent-orchestration
 description: 当用户要让多个 Agent 长期协作推进软件开发、研究、运维、内容、数据分析或受限工作区内的自由任务，并需要 1 号总管、2 号独立门禁、3/4/5 动态执行槽、可恢复状态和 Git 持久化时使用。
-version: 5.1.0
+version: 5.2.0
 ---
 
 # Multi-Agent Orchestration

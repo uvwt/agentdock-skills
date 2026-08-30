@@ -41,11 +41,13 @@ function renderKeyValues(items) {
 }
 
 function currentFilters() {
-  // 检索条件走 query string，详情深链继续用 hash，避免互相覆盖。
+  // DOM 初始化完成后，空输入也是用户的明确选择；不能再回退到 URL 里的旧条件。
   const params = new URLSearchParams(location.search);
+  const searchInput = document.getElementById("workSearch");
+  const statusSelect = document.getElementById("statusFilter");
   return {
-    query: (document.getElementById("workSearch")?.value || params.get("q") || "").trim(),
-    status: document.getElementById("statusFilter")?.value || params.get("status") || "open"
+    query: (searchInput ? searchInput.value : (params.get("q") || "")).trim(),
+    status: statusSelect ? statusSelect.value : (params.get("status") || "open")
   };
 }
 
@@ -356,6 +358,8 @@ async function refresh(reason = "auto") {
     if (!payload.ok) throw new Error(payload.error?.message || "读取失败");
     latestSnapshot = payload.data;
     renderBoard();
+    // 新建任务只高亮当前这次绘制；下一轮刷新按普通任务展示。
+    pendingHighlightId = "";
     const stamp = new Date(latestSnapshot.generated_at).toLocaleTimeString("zh-CN", {hour12: false});
     setRefreshStatus(reason === "manual" ? `已刷新 · ${stamp}` : `本机持久化状态 · ${stamp} 更新`);
   } catch (error) {

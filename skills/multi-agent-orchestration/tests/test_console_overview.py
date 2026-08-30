@@ -68,6 +68,9 @@ class ConsoleOverviewTest(unittest.TestCase):
             self.assertIn(f'<option value="{status}"', html)
 
         dashboard = (WEB_ROOT / "dashboard.js").read_text(encoding="utf-8")
+        self.assertIn('query: (searchInput ? searchInput.value : (params.get("q") || "")).trim()', dashboard)
+        self.assertNotIn('?.value || params.get("q")', dashboard)
+        self.assertIn('pendingHighlightId = "";', dashboard)
         for marker in (
             'const OPEN_STATUSES = new Set(["BACKLOG", "ACTIVE", "REVIEW", "BLOCKED", "PAUSED"])',
             'params.set("q", query)',
