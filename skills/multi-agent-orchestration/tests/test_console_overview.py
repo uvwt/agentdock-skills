@@ -61,6 +61,33 @@ class ConsoleOverviewTest(unittest.TestCase):
         self.assertIn('fetch("/api/work-items"', add_js)
         self.assertNotIn("/api/records", add_js)
 
+    def test_filter_refresh_and_mobile_contracts_remain_wired(self) -> None:
+        html = (WEB_ROOT / "index.html").read_text(encoding="utf-8")
+        self.assertIn('<option value="open">进行中</option>', html)
+        for status in ("all", "BACKLOG", "ACTIVE", "REVIEW", "BLOCKED", "PAUSED", "DONE", "CANCELLED"):
+            self.assertIn(f'<option value="{status}"', html)
+
+        dashboard = (WEB_ROOT / "dashboard.js").read_text(encoding="utf-8")
+        for marker in (
+            'const OPEN_STATUSES = new Set(["BACKLOG", "ACTIVE", "REVIEW", "BLOCKED", "PAUSED"])',
+            'params.set("q", query)',
+            'params.set("status", status)',
+            'workSearch").addEventListener("input"',
+            'statusFilter").addEventListener("change"',
+            'refreshButton").addEventListener("click"',
+            'setInterval(() => refresh("auto"), 5000)',
+            'reason === "manual" ? `已刷新',
+            'data-compose-project=',
+            '/add?project=${encodeURIComponent(projectId)}',
+        ):
+            self.assertIn(marker, dashboard)
+
+        styles = (WEB_ROOT / "styles.css").read_text(encoding="utf-8")
+        self.assertIn("@media (max-width: 760px)", styles)
+        self.assertIn(".desktop-table { display: none; }", styles)
+        self.assertIn(".work-cards { display: grid; }", styles)
+        self.assertIn(".board-toolbar { grid-template-columns: 1fr; position: sticky;", styles)
+
     def test_web_console_creates_work_item_and_keeps_record_api_disabled(self) -> None:
         server = run.ThreadingHTTPServer(("127.0.0.1", 0), run.ConsoleHandler)
         server.projects = self.projects
