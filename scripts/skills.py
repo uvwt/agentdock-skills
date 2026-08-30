@@ -21,6 +21,7 @@ FIXED_ZIP_TIME = (1980, 1, 1, 0, 0, 0)
 SEMVER_PATTERN = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$")
 FORBIDDEN_DIRS = {"__pycache__", "node_modules", ".pytest_cache", ".mypy_cache"}
 FORBIDDEN_FILES = {".DS_Store", ".env"}
+CATALOG_SCHEMA_VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -31,12 +32,8 @@ class Skill:
     root: Path
 
     @property
-    def release_tag(self) -> str:
-        return f"{self.name}-v{self.version}"
-
-    @property
     def archive_name(self) -> str:
-        return f"{self.release_tag}.zip"
+        return f"{self.name}-v{self.version}.zip"
 
 
 def parse_frontmatter(path: Path) -> dict[str, str]:
@@ -134,7 +131,6 @@ def package_bytes(skill: Skill) -> bytes:
 def build_catalog(skills: list[Skill]) -> dict[str, object]:
     entries: list[dict[str, str]] = []
     for skill in skills:
-        digest = hashlib.sha256(package_bytes(skill)).hexdigest()
         entries.append(
             {
                 "name": skill.name,
@@ -142,12 +138,9 @@ def build_catalog(skills: list[Skill]) -> dict[str, object]:
                 "description": skill.description,
                 "path": f"skills/{skill.name}",
                 "source_url": f"{REPOSITORY_URL}/tree/main/skills/{skill.name}",
-                "release_tag": skill.release_tag,
-                "download_url": f"{REPOSITORY_URL}/releases/download/{skill.release_tag}/{skill.archive_name}",
-                "digest": f"sha256:{digest}",
             }
         )
-    return {"schema_version": 1, "repository": REPOSITORY_URL, "skills": entries}
+    return {"schema_version": CATALOG_SCHEMA_VERSION, "repository": REPOSITORY_URL, "skills": entries}
 
 
 def render_catalog(skills: list[Skill]) -> str:
@@ -168,18 +161,15 @@ def write_or_check_catalog(skills: list[Skill], check: bool) -> None:
     print(f"catalog written: {CATALOG_PATH} ({len(skills)} skills)")
 
 
-def select_skill(skills: list[Skill], name: str | None, tag: str | None) -> Skill:
+def select_skill(skills: list[Skill], name: str) -> Skill:
     for skill in skills:
-        if name and skill.name == name:
+        if skill.name == name:
             return skill
-        if tag and skill.release_tag == tag:
-            return skill
-    selector = name or tag or ""
-    raise ValueError(f"找不到匹配的 Skill: {selector}")
+    raise ValueError(f"找不到匹配的 Skill: {name}")
 
 
-def package_skill(skills: list[Skill], name: str | None, tag: str | None, output_dir: Path) -> None:
-    skill = select_skill(skills, name, tag)
+def package_skill(skills: list[Skill], name: str, output_dir: Path) -> None:
+    skill = select_skill(skills, name)
     output_dir.mkdir(parents=True, exist_ok=True)
     archive_path = output_dir / skill.archive_name
     archive_data = package_bytes(skill)
@@ -198,10 +188,8 @@ def parse_args() -> argparse.Namespace:
     catalog = subcommands.add_parser("catalog", help="生成或检查 catalog.json")
     catalog.add_argument("--check", action="store_true")
 
-    package = subcommands.add_parser("package", help="打包单个 Skill")
-    selector = package.add_mutually_exclusive_group(required=True)
-    selector.add_argument("--skill")
-    selector.add_argument("--tag")
+    package = subcommands.add_parser("package", help="打包单个 Skill 为本地 ZIP")
+    package.add_argument("--skill", required=True)
     package.add_argument("--output-dir", type=Path, default=ROOT / "dist")
     return parser.parse_args()
 
@@ -214,7 +202,7 @@ def main() -> None:
     elif args.command == "catalog":
         write_or_check_catalog(skills, args.check)
     elif args.command == "package":
-        package_skill(skills, args.skill, args.tag, args.output_dir)
+        package_skill(skills, args.skill, args.output_dir)
 
 
 if __name__ == "__main__":
