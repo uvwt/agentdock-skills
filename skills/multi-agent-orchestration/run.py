@@ -98,7 +98,10 @@ def request_json(
     authenticated: bool = True,
 ) -> Any:
     body = None
-    headers = {"Accept": "application/json"}
+    headers = {
+        "Accept": "application/json",
+        "User-Agent": f"AgentDock/{SKILL_NAME}",
+    }
     if payload is not None:
         body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
         headers["Content-Type"] = "application/json"
