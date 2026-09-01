@@ -88,8 +88,8 @@
     },
     {
       "name": "multi-agent-orchestration",
-      "version": "5.2.0",
-      "description": "当用户要让多个 Agent 长期协作推进软件开发、研究、运维、内容、数据分析或受限工作区内的自由任务，并需要 1 号总管、2 号独立门禁、3/4/5 动态执行槽、可恢复状态和 Git 持久化时使用。",
+      "version": "6.0.0",
+      "description": "当 1~5 号 Agent 通过定时任务长期协作，并由 AgentDock Orchestrator 统一分配 Assignment、记录 Execution、独立 Gate 和成果状态时使用。每次唤醒只需声明 slot，Skill 负责领取服务端正式任务并回报执行事实。",
       "path": "skills/multi-agent-orchestration",
       "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/multi-agent-orchestration"
     },
