@@ -21,6 +21,7 @@ spec.loader.exec_module(module)
 
 class FakeHandler(BaseHTTPRequestHandler):
     requests: list[dict[str, object]] = []
+    next_by_slot: dict[int, dict[str, object]] = {}
 
     def log_message(self, *_args: object) -> None:
         return
@@ -52,8 +53,13 @@ class FakeHandler(BaseHTTPRequestHandler):
         if self.path == "/healthz":
             self._reply(200, {"status": "ok"})
             return
-        if self.path == "/api/v1/agent/slots/3/next":
-            self._reply(200, {"status": "idle", "slot": 3})
+        if self.path.startswith("/api/v1/agent/slots/") and self.path.endswith("/next"):
+            try:
+                slot = int(self.path.split("/")[5])
+            except (ValueError, IndexError):
+                self._reply(400, {"error": "bad slot"})
+                return
+            self._reply(200, self.__class__.next_by_slot.get(slot, {"status": "idle", "slot": slot}))
             return
         if self.path.startswith("/api/v1/work-items/wi_1/records"):
             self._reply(200, [{"id": "rec_1"}])
@@ -67,13 +73,16 @@ class FakeHandler(BaseHTTPRequestHandler):
                 "status": "claimed",
                 "slot": 3,
                 "assignment": {"id": "asg_1", "seat": 3, "focus_role": "backend", "kind": "work"},
-                "execution": {"id": "exe_1", "status": "queued"},
+                "execution": {"id": "exe_1", "status": "running", "started_at": "2026-09-01T00:00:00Z"},
                 "work_item": {"id": "wi_1", "title": "实现后端"},
             })
             return
         if self.path == "/api/v1/agent/executions/exe_1/status":
             payload = item["payload"]
             self._reply(200, {"id": "exe_1", "status": payload["status"], "summary": payload.get("summary", "")})
+            return
+        if self.path == "/api/v1/agent/executions/exe_1/progress":
+            self._reply(201, {"id": "rec_progress", "subject": "execution_progress", "payload": item["payload"]})
             return
         if self.path == "/api/v1/agent/executions/exe_1/artifacts":
             self._reply(201, {"id": "art_1", **item["payload"]})
@@ -96,6 +105,7 @@ class FakeHandler(BaseHTTPRequestHandler):
 @contextmanager
 def fake_server():
     FakeHandler.requests = []
+    FakeHandler.next_by_slot = {}
     server = ThreadingHTTPServer(("127.0.0.1", 0), FakeHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -128,6 +138,7 @@ class MultiAgentOrchestratorClientTests(unittest.TestCase):
         }, clear=True):
             result = module.handle({"skill_action": "claim", "slot": 3})
         self.assertEqual(result["status"], "claimed")
+        self.assertEqual(result["execution"]["status"], "running")
         request = FakeHandler.requests[-1]
         self.assertEqual(request["path"], "/api/v1/agent/slots/3/claim")
         self.assertEqual(request["authorization"], "Bearer agent-token")
@@ -146,25 +157,43 @@ class MultiAgentOrchestratorClientTests(unittest.TestCase):
             result = module.handle({"skill_action": "next"})
         self.assertEqual(result, {"status": "idle", "slot": 3})
 
-    def test执行回报与角色动作映射到AgentAPI(self) -> None:
+    def test执行回报只传slot并由Skill解析Execution(self) -> None:
         with fake_server() as base_url, patch.dict(os.environ, {
             module.ORCHESTRATOR_URL_ENV: base_url,
             module.ORCHESTRATOR_TOKEN_ENV: "agent-token",
         }, clear=True):
-            started = module.handle({"skill_action": "start", "execution_id": "exe_1"})
-            finished = module.handle({"skill_action": "finish", "execution_id": "exe_1", "summary": "done"})
-            artifact = module.handle({"skill_action": "artifact", "execution_id": "exe_1", "title": "result", "type": "text", "value": "ok"})
-            dispatched = module.handle({"skill_action": "dispatch", "execution_id": "exe_1", "assignments": [{"seat": 3, "role": "backend", "title": "x", "goal": "y", "required": True}]})
-            gate_assignment = module.handle({"skill_action": "request_gate", "execution_id": "exe_1"})
-            gate = module.handle({"skill_action": "submit_gate", "execution_id": "exe_1", "gate": {"profile": "generic", "verdict": "PASS", "checks": [{"id": "x", "result": "PASS", "evidence": "ok"}], "evidence": "ok"}})
-            completed = module.handle({"skill_action": "complete", "execution_id": "exe_1"})
-        self.assertEqual(started["status"], "running")
+            FakeHandler.next_by_slot[3] = {"status": "busy", "slot": 3, "execution": {"id": "exe_1", "status": "running"}}
+            progress = module.handle({"skill_action": "progress", "slot": 3, "summary": "working"})
+            artifact = module.handle({"skill_action": "artifact", "slot": 3, "title": "result", "type": "text", "value": "ok"})
+            finished = module.handle({"skill_action": "finish", "slot": 3, "summary": "done"})
+
+            FakeHandler.next_by_slot[1] = {"status": "resume", "slot": 1, "next_action": "dispatch", "execution": {"id": "exe_1", "status": "succeeded"}}
+            dispatched = module.handle({"skill_action": "dispatch", "slot": 1, "assignments": [{"seat": 3, "role": "backend", "title": "x", "goal": "y", "required": True}]})
+            FakeHandler.next_by_slot[1]["next_action"] = "request_gate"
+            gate_assignment = module.handle({"skill_action": "request_gate", "slot": 1})
+            FakeHandler.next_by_slot[2] = {"status": "resume", "slot": 2, "next_action": "submit_gate", "execution": {"id": "exe_1", "status": "succeeded"}}
+            gate = module.handle({"skill_action": "submit_gate", "slot": 2, "gate": {"profile": "generic", "verdict": "PASS", "checks": [{"id": "x", "result": "PASS", "evidence": "ok"}], "evidence": "ok"}})
+            FakeHandler.next_by_slot[1]["next_action"] = "complete"
+            completed = module.handle({"skill_action": "complete", "slot": 1})
+
+        self.assertEqual(progress["subject"], "execution_progress")
         self.assertEqual(finished["status"], "succeeded")
         self.assertEqual(artifact["id"], "art_1")
         self.assertEqual(dispatched[0]["seat"], 3)
         self.assertEqual(gate_assignment["seat"], 2)
         self.assertEqual(gate["verdict"], "PASS")
         self.assertEqual(completed["status"], "completed")
+        self.assertFalse(any("execution_id" in (request.get("payload") or {}) for request in FakeHandler.requests if isinstance(request.get("payload"), dict)))
+
+    def test协议后续动作必须匹配resumeNextAction(self) -> None:
+        with fake_server() as base_url, patch.dict(os.environ, {
+            module.ORCHESTRATOR_URL_ENV: base_url,
+            module.ORCHESTRATOR_TOKEN_ENV: "agent-token",
+        }, clear=True):
+            FakeHandler.next_by_slot[1] = {"status": "resume", "slot": 1, "next_action": "request_gate", "execution": {"id": "exe_1", "status": "succeeded"}}
+            with self.assertRaises(module.SkillError) as captured:
+                module.handle({"skill_action": "complete", "slot": 1})
+        self.assertEqual(captured.exception.code, "slot_action_mismatch")
 
     def test缺少Token和非法URL快速失败(self) -> None:
         with patch.dict(os.environ, {module.ORCHESTRATOR_URL_ENV: "https://example.com"}, clear=True):

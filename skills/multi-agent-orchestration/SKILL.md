@@ -1,7 +1,7 @@
 ---
 name: multi-agent-orchestration
 description: 当 1~5 号 Agent 通过定时任务长期协作，并由 AgentDock Orchestrator 统一分配 Assignment、记录 Execution、独立 Gate 和成果状态时使用。每次唤醒只需声明 slot，Skill 负责领取服务端正式任务并回报执行事实。
-version: 6.0.1
+version: 6.1.0
 ---
 
 # Multi-Agent Orchestration
@@ -38,17 +38,18 @@ printf '%s' '{"skill_action":"claim","slot":3}' | python3 run.py
 
 脚本从 Skill 根目录以相对路径执行；URL、Token、节点标识等环境由运行宿主注入，不读取 AgentDock 私有目录或环境文件。
 
-`claim` 是推荐入口，它已经把“选下一项 + 创建 Execution”做成服务端原子操作，不需要先 `next` 再 `claim`。
+`claim` 是推荐入口。它在服务端一次完成“选择下一项 + 创建 Execution + 标记 running”，模型不需要再手动 `start`，也不需要保存 `execution_id`。
 
 返回状态：
 
-- `claimed`：本轮拿到一个新的正式 Assignment，继续执行。
+- `claimed`：本轮拿到新的正式 Assignment，Execution 已经是 `running`，直接开始实际工作。
+- `resume`：上一轮 Execution 已成功结束，但仍有一个协议后续动作；读取 `next_action` 并继续，不要领取别的 Work Item。
 - `idle`：当前没有属于该 Slot 的待办，正常结束。
-- `busy`：该 Slot 已有 queued/running Execution，通常说明另一个定时触发仍在工作；不要重复执行，正常结束。
+- `busy`：该 Slot 已有 queued/running Execution，通常说明另一个定时触发仍在工作；新的定时触发不要重复执行。
 
-同一 Slot 一次只运行一个 Execution。服务端会按 FIFO 从所有活动 Project/Work Item 中选择当前有效的 READY Assignment。
+同一 Slot 一次只运行一个 Execution。服务端会优先恢复 `resume` 上下文，再按 FIFO 从所有活动 Project/Work Item 中选择 READY Assignment，避免在 dispatch / Gate / close 尚未完成时跳去其他任务。
 
-## 3. claimed 后的统一流程
+## 3. claimed / resume 后的统一流程
 
 收到 `claimed` 后先阅读返回的：
 
@@ -58,12 +59,14 @@ printf '%s' '{"skill_action":"claim","slot":3}' | python3 run.py
 - `execution`
 - `recent_records`
 
-只执行 `assignment` 明确要求的工作，不自行改变正式任务归属。
+只执行 `assignment` 明确要求的工作，不自行改变正式任务归属。`claim` 已经自动写入 started；不要再调用 `start`。
 
-开始实际工作前：
+后续所有写动作都只传自己的 `slot`，Skill 会从 Orchestrator 当前上下文解析 Execution；模型不要抄写、缓存或传递 `execution_id`。
+
+执行时间较长时可以按 slot 报告关键进展；不要高频刷 progress：
 
 ```json
-{"skill_action":"start","execution_id":"exe_..."}
+{"skill_action":"progress","slot":3,"summary":"已筛出 12 个候选，正在核对真实使用量"}
 ```
 
 有真实成果时及时上报 Artifact：
@@ -71,7 +74,7 @@ printf '%s' '{"skill_action":"claim","slot":3}' | python3 run.py
 ```json
 {
   "skill_action": "artifact",
-  "execution_id": "exe_...",
+  "slot": 3,
   "artifact": {
     "title": "实现结果",
     "type": "text",
@@ -84,7 +87,7 @@ printf '%s' '{"skill_action":"claim","slot":3}' | python3 run.py
 普通 Worker 完成后：
 
 ```json
-{"skill_action":"finish","execution_id":"exe_...","status":"succeeded","summary":"完成了什么，以及关键证据"}
+{"skill_action":"finish","slot":3,"status":"succeeded","summary":"完成了什么，以及关键证据"}
 ```
 
 如果本轮明确失败，应使用 `failed` 或 `interrupted`，让 Assignment 回到 READY 供后续定时任务重试；不要把失败包装成成功。
@@ -97,13 +100,13 @@ printf '%s' '{"skill_action":"claim","slot":3}' | python3 run.py
 
 1. 理解 Work Item 目标、验收条件和已有 Record。
 2. 拆成 1~3 个真正需要的 Worker Assignment；不用为了凑满 3/4/5 全开。
-3. 先把当前 plan Execution `finish: succeeded`。
-4. 再调用 `dispatch` 形成正式 Worker Assignment。
+3. 用 `finish slot=1 status=succeeded` 结束当前 plan Execution。
+4. 服务端会返回可恢复的 `resume / next_action=dispatch` 上下文；再用 `dispatch slot=1` 形成正式 Worker Assignment。
 
 ```json
 {
   "skill_action": "dispatch",
-  "execution_id": "exe_...",
+  "slot": 1,
   "assignments": [
     {
       "seat": 3,
@@ -121,27 +124,27 @@ printf '%s' '{"skill_action":"claim","slot":3}' | python3 run.py
 
 ### `rework`
 
-读取最新 Gate/Record 中的失败或 STALE 证据，重新形成必要 Worker Assignment。顺序同 plan：先成功结束 rework Execution，再 `dispatch`。
+读取最新 Gate/Record 中的失败或 STALE 证据，重新形成必要 Worker Assignment。顺序同 plan：先 `finish slot=1`，再在 `resume / next_action=dispatch` 时调用 `dispatch slot=1`。
 
 ### `integrate`
 
 1. 汇总 Worker Artifact 和真实业务结果。
 2. 对代码交付项目，确保服务端配置的 Business Git 工作区已经形成 clean 最终候选。
-3. 先 `finish: succeeded`。
-4. 再 `request_gate`：
+3. 先 `finish slot=1 status=succeeded`。
+4. `resume / next_action=request_gate` 后再请求 Gate：
 
 ```json
-{"skill_action":"request_gate","execution_id":"exe_..."}
+{"skill_action":"request_gate","slot":1}
 ```
 
 服务端会锁定最终候选，并创建 2 号正式 Gate Assignment。
 
 ### `close`
 
-只有正式 Gate PASS 后才会出现。先 `finish: succeeded`，再：
+只有正式 Gate PASS 后才会出现。先 `finish slot=1 status=succeeded`；看到 `resume / next_action=complete` 后再：
 
 ```json
-{"skill_action":"complete","execution_id":"exe_..."}
+{"skill_action":"complete","slot":1}
 ```
 
 如果历史 PASS 已因 Business Git HEAD/clean 状态变化而 STALE，服务端会拒绝完成并自动进入 rework；不要绕过。
@@ -152,16 +155,15 @@ printf '%s' '{"skill_action":"claim","slot":3}' | python3 run.py
 
 流程：
 
-1. `claim slot=2`。
-2. `start`。
-3. 独立检查最终候选，不接受 1/3/4/5 号“代验收”。
-4. 先 `finish: succeeded`，表示 Gate 执行过程本身完成。
-5. 再 `submit_gate` 写正式结论。
+1. `claim slot=2`；返回 `claimed` 时 Execution 已自动 running。
+2. 独立检查最终候选，不接受 1/3/4/5 号“代验收”。
+3. 用 `finish slot=2 status=succeeded` 表示 Gate 执行过程本身完成。
+4. 看到 `resume / next_action=submit_gate` 后，再 `submit_gate slot=2` 写正式结论。
 
 ```json
 {
   "skill_action": "submit_gate",
-  "execution_id": "exe_...",
+  "slot": 2,
   "gate": {
     "profile": "software",
     "verdict": "PASS",
@@ -182,14 +184,14 @@ Gate `verdict` 与 check 只能基于真实证据。Business Git 项目由服务
 |---|---|
 | `status` | 检查 Skill 配置与 Orchestrator `/healthz` |
 | `next` | 只读查看某 Slot 下一状态，不认领 |
-| `claim` | 推荐的定时任务入口；原子领取下一 Assignment |
-| `start` | Execution → running |
-| `finish` | Execution → succeeded / failed / interrupted |
-| `artifact` | 上报真实 Artifact |
-| `dispatch` | 1 号 plan/rework 后生成 3/4/5 Assignment |
-| `request_gate` | 1 号 integrate 后请求 2 号 Gate |
-| `submit_gate` | 2 号提交正式 Gate |
-| `complete` | 1 号 close 后完成 Work Item |
+| `claim` | 推荐的定时任务入口；原子领取并自动开始 Execution，或返回 resume |
+| `progress` | 按 slot 记录当前 running Execution 的关键进展，不改变状态 |
+| `finish` | 按 slot 将当前 Execution → succeeded / failed / interrupted |
+| `artifact` | 按 slot 上报当前 Execution 的真实 Artifact |
+| `dispatch` | 1 号在 resume/dispatch 时生成 3/4/5 Assignment |
+| `request_gate` | 1 号在 resume/request_gate 时请求 2 号 Gate |
+| `submit_gate` | 2 号在 resume/submit_gate 时提交正式 Gate |
+| `complete` | 1 号在 resume/complete 时完成 Work Item |
 | `work_item` | 只读获取 Work Item 当前快照 |
 | `outcome` | 只读获取成果视图数据 |
 | `records` | 只读获取最近 Record |
@@ -216,9 +218,11 @@ Gate `verdict` 与 check 只能基于真实证据。Business Git 项目由服务
 ## 8. 失败与恢复
 
 - `idle`：不是错误，结束本轮。
-- `busy`：不是错误；不要抢占或重复执行。
+- `busy`：不是错误；新的定时触发不要抢占或重复执行。
+- `resume`：不是新的 Assignment；继续 `next_action` 指定的协议动作，完成后再领取其他任务。
 - HTTP 401：Token 未配置或不匹配。
 - HTTP 409：服务端状态已经变化，重新 `next/claim`，不要根据旧上下文强推。
+- Skill 写动作不接受模型手动管理 Execution 生命周期；统一通过 `slot` 解析当前 Execution。
 - `finish: failed/interrupted`：服务端会把当前 Assignment 重新变为 READY，后续定时任务可重试。
 - 控制面重启时会把遗留 queued/running Execution 标记 interrupted 并释放 Assignment。
 - 当前 V1.1 不做时间型 lease 自动抢占：如果 Agent 进程被硬杀而 Orchestrator 本身未重启，Slot 会保持 `busy`，避免误判另一个仍在工作的 Agent。出现持续 busy 时应先确认原执行是否真的死亡，再处理恢复，不要让定时任务自动并发接管。

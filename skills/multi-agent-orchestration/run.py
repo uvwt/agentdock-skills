@@ -155,7 +155,7 @@ def action_status() -> dict[str, Any]:
             "status",
             "next",
             "claim",
-            "start",
+            "progress",
             "finish",
             "artifact",
             "dispatch",
@@ -194,42 +194,73 @@ def action_claim(request: dict[str, Any]) -> Any:
     return request_json(client, "POST", f"/api/v1/agent/slots/{slot}/claim", payload=execution_identity(request))
 
 
-def action_start(request: dict[str, Any]) -> Any:
-    return update_execution(request, "running")
+def resolve_slot_execution(
+    request: dict[str, Any],
+    *,
+    allowed_statuses: set[str],
+    next_action: str = "",
+) -> tuple[ClientConfig, int, dict[str, Any], str]:
+    slot = parse_slot(request)
+    client = require_client()
+    task = request_json(client, "GET", f"/api/v1/agent/slots/{slot}/next")
+    if not isinstance(task, dict):
+        raise SkillError("invalid_orchestrator_response", "Orchestrator Slot 上下文不是对象")
+
+    status = str(task.get("status") or "").strip().lower()
+    if status not in allowed_statuses:
+        allowed = " / ".join(sorted(allowed_statuses))
+        raise SkillError("slot_context_unavailable", f"slot {slot} 当前状态为 {status or 'unknown'}，此动作需要 {allowed}")
+    if next_action and str(task.get("next_action") or "").strip() != next_action:
+        raise SkillError(
+            "slot_action_mismatch",
+            f"slot {slot} 当前应执行 {task.get('next_action') or 'unknown'}，不能执行 {next_action}",
+        )
+
+    execution = task.get("execution")
+    if not isinstance(execution, dict):
+        raise SkillError("slot_execution_missing", f"slot {slot} 当前没有可用 Execution 上下文")
+    execution_id = clean_id(execution.get("id"), field="execution.id")
+    return client, slot, task, execution_id
+
+
+def action_progress(request: dict[str, Any]) -> Any:
+    client, _, _, execution_id = resolve_slot_execution(request, allowed_statuses={"busy"})
+    summary = str(request.get("summary") or "").strip()
+    if not summary:
+        raise SkillError("invalid_progress", "progress.summary 不能为空")
+    return request_json(
+        client,
+        "POST",
+        f"/api/v1/agent/executions/{quote(execution_id, safe='')}/progress",
+        payload={"summary": summary},
+    )
 
 
 def action_finish(request: dict[str, Any]) -> Any:
     status = str(request.get("status") or "succeeded").strip().lower()
     if status not in {"succeeded", "failed", "interrupted"}:
         raise SkillError("invalid_execution_status", "finish.status 只能是 succeeded / failed / interrupted")
-    return update_execution(request, status)
-
-
-def update_execution(request: dict[str, Any], status: str) -> Any:
-    execution_id = clean_id(request.get("execution_id"), field="execution_id")
-    client = require_client()
+    client, _, _, execution_id = resolve_slot_execution(request, allowed_statuses={"busy"})
     payload = {"status": status, "summary": str(request.get("summary") or "").strip()}
     return request_json(client, "POST", f"/api/v1/agent/executions/{quote(execution_id, safe='')}/status", payload=payload)
 
 
 def action_artifact(request: dict[str, Any]) -> Any:
-    execution_id = clean_id(request.get("execution_id"), field="execution_id")
+    client, _, _, execution_id = resolve_slot_execution(request, allowed_statuses={"busy"})
     payload = request.get("artifact") if isinstance(request.get("artifact"), dict) else {
         "title": request.get("title"),
         "type": request.get("type"),
         "value": request.get("value"),
         "description": request.get("description"),
     }
-    client = require_client()
     return request_json(client, "POST", f"/api/v1/agent/executions/{quote(execution_id, safe='')}/artifacts", payload=payload)
 
 
 def action_dispatch(request: dict[str, Any]) -> Any:
-    execution_id = clean_id(request.get("execution_id"), field="execution_id")
+    client, _, _, execution_id = resolve_slot_execution(request, allowed_statuses={"resume"}, next_action="dispatch")
     assignments = request.get("assignments")
     if not isinstance(assignments, list) or not assignments:
         raise SkillError("invalid_assignments", "dispatch.assignments 必须是非空数组")
-    client = require_client()
     return request_json(
         client,
         "POST",
@@ -239,13 +270,12 @@ def action_dispatch(request: dict[str, Any]) -> Any:
 
 
 def action_request_gate(request: dict[str, Any]) -> Any:
-    execution_id = clean_id(request.get("execution_id"), field="execution_id")
-    client = require_client()
+    client, _, _, execution_id = resolve_slot_execution(request, allowed_statuses={"resume"}, next_action="request_gate")
     return request_json(client, "POST", f"/api/v1/agent/executions/{quote(execution_id, safe='')}/gate-request")
 
 
 def action_submit_gate(request: dict[str, Any]) -> Any:
-    execution_id = clean_id(request.get("execution_id"), field="execution_id")
+    client, _, _, execution_id = resolve_slot_execution(request, allowed_statuses={"resume"}, next_action="submit_gate")
     gate = request.get("gate") if isinstance(request.get("gate"), dict) else {
         "profile": request.get("profile"),
         "verdict": request.get("verdict"),
@@ -253,13 +283,11 @@ def action_submit_gate(request: dict[str, Any]) -> Any:
         "checks": request.get("checks"),
         "evidence": request.get("evidence"),
     }
-    client = require_client()
     return request_json(client, "POST", f"/api/v1/agent/executions/{quote(execution_id, safe='')}/gate", payload=gate)
 
 
 def action_complete(request: dict[str, Any]) -> Any:
-    execution_id = clean_id(request.get("execution_id"), field="execution_id")
-    client = require_client()
+    client, _, _, execution_id = resolve_slot_execution(request, allowed_statuses={"resume"}, next_action="complete")
     return request_json(client, "POST", f"/api/v1/agent/executions/{quote(execution_id, safe='')}/complete")
 
 
@@ -287,8 +315,8 @@ def handle(request: dict[str, Any]) -> Any:
         return action_next(request)
     if action == "claim":
         return action_claim(request)
-    if action == "start":
-        return action_start(request)
+    if action == "progress":
+        return action_progress(request)
     if action == "finish":
         return action_finish(request)
     if action == "artifact":
