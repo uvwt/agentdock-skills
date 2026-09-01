@@ -41,6 +41,7 @@ class FakeHandler(BaseHTTPRequestHandler):
             "method": self.command,
             "path": self.path,
             "authorization": self.headers.get("Authorization", ""),
+            "user_agent": self.headers.get("User-Agent", ""),
             "payload": payload,
         }
         self.__class__.requests.append(item)
@@ -130,6 +131,7 @@ class MultiAgentOrchestratorClientTests(unittest.TestCase):
         request = FakeHandler.requests[-1]
         self.assertEqual(request["path"], "/api/v1/agent/slots/3/claim")
         self.assertEqual(request["authorization"], "Bearer agent-token")
+        self.assertEqual(request["user_agent"], "AgentDock/multi-agent-orchestration")
         self.assertEqual(request["payload"]["node_id"], "dockmini")
         self.assertEqual(request["payload"]["agent"], "timer-agent")
         self.assertNotIn("role", request["payload"])
