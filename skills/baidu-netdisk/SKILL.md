@@ -1,7 +1,6 @@
 ---
 name: baidu-netdisk
 description: Use this skill when managing Baidu Netdisk files through the bdpan CLI inside the application data scope.
-version: 0.3.5
 ---
 
 # Baidu Netdisk

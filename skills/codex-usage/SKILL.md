@@ -1,7 +1,6 @@
 ---
 name: codex-usage
 description: Use this skill when checking the current macOS user Codex CLI account state or Codex usage quota.
-version: 0.1.6
 ---
 
 # Codex Usage

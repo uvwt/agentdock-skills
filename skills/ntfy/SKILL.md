@@ -1,7 +1,6 @@
 ---
 name: ntfy
 description: Use this skill when sending notifications via ntfy.sh or self-hosted ntfy servers.
-version: 0.2.5
 ---
 
 # ntfy Notifications Skill

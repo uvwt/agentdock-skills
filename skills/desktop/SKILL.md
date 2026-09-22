@@ -1,7 +1,6 @@
 ---
 name: desktop
 description: macOS desktop automation as an AgentDock Skill workflow.
-version: 1.0.12
 ---
 
 # macOS Desktop Skill

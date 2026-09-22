@@ -1,7 +1,6 @@
 ---
 name: poke-api
 description: Send context-rich instructions to Poke through the V2 inbound API using a securely injected API key.
-version: 0.1.7
 ---
 
 # Poke API Skill

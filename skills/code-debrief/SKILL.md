@@ -1,7 +1,6 @@
 ---
 name: code-debrief
 description: Explain and teach the core implementation produced by vibecoding from real code, focusing on the main call chain, core code, state and data flow, design reasoning, and transferable engineering knowledge. Use when the user asks to explain, review, learn, debrief, or understand recent code changes, a commit, PR, diff, feature, module, or code path.
-version: 0.1.2
 ---
 
 Read the real code before explaining it. Do not guess paths, behavior, dependencies, runtime order, or design intent. If a fact can be established from the codebase, Git diff, configuration, or minimal runtime observation, inspect it instead of asking the user.

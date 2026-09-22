@@ -1,7 +1,6 @@
 ---
 name: linkwarden
 description: Manage a Linkwarden instance through its official HTTP API: check configuration, search and inspect bookmarks, collections, tags and highlights, and perform controlled link, collection or tag changes with explicit confirmation for destructive actions.
-version: 1.1.0
 ---
 
 # Linkwarden Skill

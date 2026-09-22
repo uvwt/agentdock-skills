@@ -1,7 +1,6 @@
 ---
 name: weread-skills
 description: 微信读书助手，可搜索书籍、查看书架、笔记、书评、阅读统计与推荐。
-version: 1.0.7
 ---
 
 # 微信读书 Skill

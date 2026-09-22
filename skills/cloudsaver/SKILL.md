@@ -1,7 +1,6 @@
 ---
 name: cloudsaver
 description: Use this skill when calling the local CloudSaver API for status checks, resource search, Douban hot lists, share parsing, or transfer actions.
-version: 0.3.5
 ---
 
 # CloudSaver Skill

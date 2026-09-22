@@ -1,7 +1,6 @@
 ---
 name: bark
 description: Send Bark-compatible notifications with Python standard library while keeping the device key in the private Skill data environment.
-version: 0.1.8
 ---
 
 # Bark Push Skill

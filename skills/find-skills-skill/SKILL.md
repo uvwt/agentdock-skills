@@ -1,7 +1,6 @@
 ---
 name: find-skills-skill
 description: Search and discover OpenClaw skills from various sources. Use when: user wants to find available skills, search for specific functionality, or discover new skills to install.
-version: 1.0.6
 ---
 
 # Find Skills Skill

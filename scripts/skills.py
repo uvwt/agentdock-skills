@@ -6,7 +6,6 @@ import argparse
 import hashlib
 import io
 import json
-import re
 import stat
 import sys
 import zipfile
@@ -18,22 +17,20 @@ SKILLS_ROOT = ROOT / "skills"
 CATALOG_PATH = ROOT / "catalog.json"
 REPOSITORY_URL = "https://github.com/uvwt/agentdock-skills"
 FIXED_ZIP_TIME = (1980, 1, 1, 0, 0, 0)
-SEMVER_PATTERN = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$")
 FORBIDDEN_DIRS = {"__pycache__", "node_modules", ".pytest_cache", ".mypy_cache"}
 FORBIDDEN_FILES = {".DS_Store", ".env"}
-CATALOG_SCHEMA_VERSION = 2
+CATALOG_SCHEMA_VERSION = 3
 
 
 @dataclass(frozen=True)
 class Skill:
     name: str
-    version: str
     description: str
     root: Path
 
     @property
     def archive_name(self) -> str:
-        return f"{self.name}-v{self.version}.zip"
+        return f"{self.name}.zip"
 
 
 def parse_frontmatter(path: Path) -> dict[str, str]:
@@ -67,15 +64,12 @@ def discover_skills() -> list[Skill]:
 
         fields = parse_frontmatter(document)
         name = fields.get("name", "")
-        version = fields.get("version", "")
         description = fields.get("description", "")
         if name != root.name:
             raise ValueError(f"{root.name}: frontmatter name 必须与目录名一致，实际为 {name!r}")
-        if not SEMVER_PATTERN.fullmatch(version):
-            raise ValueError(f"{root.name}: version 不是合法语义化版本: {version!r}")
         if not description:
             raise ValueError(f"{root.name}: description 不能为空")
-        skills.append(Skill(name=name, version=version, description=description, root=root))
+        skills.append(Skill(name=name, description=description, root=root))
 
     if not skills:
         raise ValueError("仓库中没有 Skill")
@@ -134,7 +128,6 @@ def build_catalog(skills: list[Skill]) -> dict[str, object]:
         entries.append(
             {
                 "name": skill.name,
-                "version": skill.version,
                 "description": skill.description,
                 "path": f"skills/{skill.name}",
                 "source_url": f"{REPOSITORY_URL}/tree/main/skills/{skill.name}",
@@ -177,7 +170,7 @@ def package_skill(skills: list[Skill], name: str, output_dir: Path) -> None:
     digest = hashlib.sha256(archive_data).hexdigest()
     checksum_path = output_dir / f"{skill.archive_name}.sha256"
     checksum_path.write_text(f"{digest}  {skill.archive_name}\n", encoding="utf-8")
-    print(json.dumps({"skill": skill.name, "version": skill.version, "archive": str(archive_path), "digest": f"sha256:{digest}"}, ensure_ascii=False))
+    print(json.dumps({"skill": skill.name, "archive": str(archive_path), "digest": f"sha256:{digest}"}, ensure_ascii=False))
 
 
 def parse_args() -> argparse.Namespace:

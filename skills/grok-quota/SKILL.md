@@ -1,7 +1,6 @@
 ---
 name: grok-quota
 description: Query detailed Grok weekly usage, GrokChat/GrokBuild breakdown, plan, monthly credits, and pay-as-you-go state from local xAI OAuth credentials.
-version: 0.3.3
 ---
 
 # Grok Quota

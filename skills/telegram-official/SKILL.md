@@ -1,7 +1,6 @@
 ---
 name: telegram-official
 description: Send Dock notifications through Telegram's official Bot API using only Python standard library and api.telegram.org.
-version: 0.1.5
 ---
 
 # Telegram Official Bot API Skill

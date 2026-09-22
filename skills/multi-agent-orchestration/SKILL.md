@@ -1,7 +1,6 @@
 ---
 name: multi-agent-orchestration
 description: 当 1~5 号 Agent 通过定时任务长期协作，并由 AgentDock Orchestrator 统一分配 Assignment、记录 Execution、独立 Gate 和成果状态时使用。每次唤醒只需声明 slot，Skill 负责领取服务端正式任务并回报执行事实。
-version: 6.1.0
 ---
 
 # Multi-Agent Orchestration

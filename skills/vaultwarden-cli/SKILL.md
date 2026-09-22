@@ -1,7 +1,6 @@
 ---
 name: vaultwarden-cli
 description: 通过 Bitwarden 官方 bw CLI 安全访问自部署 Vaultwarden。默认只返回脱敏元数据，秘密只进入本机剪贴板。
-version: 1.0.5
 ---
 
 # Vaultwarden CLI

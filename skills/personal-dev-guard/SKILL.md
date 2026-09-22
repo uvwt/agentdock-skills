@@ -1,7 +1,6 @@
 ---
 name: personal-dev-guard
 description: Use this skill before or during code changes and code review to enforce readable, restrained, maintainable code with low patch smell.
-version: 0.3.0
 ---
 
 # Personal Dev Guard / 个人开发守门规范

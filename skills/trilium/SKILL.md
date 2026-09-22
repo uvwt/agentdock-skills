@@ -1,7 +1,6 @@
 ---
 name: trilium
 description: Search, read, create, update and organize notes in a Trilium Notes instance through the official ETAPI, including revisions, branches, attributes, attachments, calendar notes and explicitly confirmed destructive operations.
-version: 1.1.1
 ---
 
 # Trilium Skill

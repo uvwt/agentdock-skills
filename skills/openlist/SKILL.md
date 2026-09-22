@@ -1,7 +1,6 @@
 ---
 name: openlist
 description: OpenList v4 HTTP API integration for AgentDock: authentication, file browsing/search, safe text uploads, file operations, storage/driver inspection, and restricted generic API calls.
-version: 0.2.5
 ---
 
 # OpenList Skill

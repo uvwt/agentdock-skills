@@ -1,7 +1,6 @@
 ---
 name: vitapulse
 description: Read the private VitaPulse HealthKit API gateway with scoped tokens, freshness checks, trends, and asynchronous sync requests.
-version: 0.2.4
 ---
 
 # VitaPulse 元息 Skill
