@@ -1,7 +1,6 @@
 ---
 name: wallos
 description: Use this skill to query and manage subscriptions in a self-hosted Wallos instance through its official HTTP API. Covers subscriptions, monthly cost, categories, currencies, payment methods, household members, and the current user; excludes administrator, OIDC, notification-secret, Fixer, and generic API management.
-version: 0.1.1
 ---
 
 # Wallos Skill

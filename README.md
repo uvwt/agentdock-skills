@@ -107,7 +107,7 @@ skills/<skill-name>/
 └── SKILL.md
 ```
 
-根据需要还可以包含 `scripts/`、`references/`、`tests/` 等内容。`SKILL.md` frontmatter 中的 `name` 应与目录名一致，并声明语义化 `version` 和非空 `description`。
+根据需要还可以包含 `scripts/`、`references/`、`tests/` 等内容。`SKILL.md` frontmatter 中的 `name` 应与目录名一致，并声明非空 `description`。本仓库不为 Skill 建立独立版本身份；内容演进由 Git 历史追踪。
 
 ### 本地校验
 
@@ -135,7 +135,7 @@ done
 
 ### 可选本地打包
 
-维护者如需本地调试 `skill_package`，仍可以生成确定性 ZIP 和 SHA-256：
+维护者如需本地验证 ZIP 输入，仍可以生成确定性 ZIP 和 SHA-256：
 
 ```bash
 python3 scripts/skills.py package --skill trilium --output-dir dist
@@ -145,11 +145,11 @@ python3 scripts/skills.py package --skill trilium --output-dir dist
 
 ### 提交前
 
-- 行为发生变化时递增对应 Skill 版本；
+- 行为发生变化时直接更新当前 Skill 内容，并让 Git 历史记录演进；
 - 运行仓库校验、目录检查和相关测试；
 - 不提交真实 Token、Cookie、`.env`、缓存或运行数据；
 - 检查包内没有秘密、私有路径、符号链接和意外产物；
-- 保持同名同版本内容不可变。
+- 不在仓库工具或 Skill frontmatter 中恢复独立 version、activate 或 rollback 生命周期。
 
 本仓库保留了原 `agentdock/skill-sources` 的 Git 历史，迁移后的 `git log --follow` 和 `git blame` 仍可追踪各 Skill 的演进记录。
 

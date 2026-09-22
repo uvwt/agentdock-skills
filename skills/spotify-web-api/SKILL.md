@@ -1,7 +1,6 @@
 ---
 name: spotify-web-api
 description: Use Spotify Web API with official OAuth PKCE. Use to authorize Spotify safely, search tracks, read current playback, and add tracks to playlists without importing browser cookies.
-version: 0.1.8
 ---
 
 # Spotify Web API

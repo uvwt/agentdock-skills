@@ -1,7 +1,6 @@
 ---
 name: rsshub
 description: Use the local RSSHub service for status checks, route URL construction, feed fetching, feed parsing, and route probing.
-version: 0.1.4
 ---
 
 # RSSHub Skill

@@ -29,14 +29,13 @@ class SkillsRepositoryTests(unittest.TestCase):
 
     def test_catalog_is_source_index_without_release_artifacts(self) -> None:
         catalog = skills.build_catalog(self.all_skills)
-        forbidden = {"release_tag", "download_url", "digest"}
+        forbidden = {"version", "release_tag", "download_url", "digest"}
 
         self.assertEqual(catalog["schema_version"], skills.CATALOG_SCHEMA_VERSION)
         self.assertEqual(catalog["repository"], skills.REPOSITORY_URL)
         self.assertEqual(len(catalog["skills"]), len(self.all_skills))
         for skill, entry in zip(self.all_skills, catalog["skills"]):
             self.assertEqual(entry["name"], skill.name)
-            self.assertEqual(entry["version"], skill.version)
             self.assertEqual(entry["description"], skill.description)
             self.assertEqual(entry["path"], f"skills/{skill.name}")
             self.assertEqual(entry["source_url"], f"{skills.REPOSITORY_URL}/tree/main/skills/{skill.name}")
@@ -55,6 +54,7 @@ class SkillsRepositoryTests(unittest.TestCase):
             skills.package_skill(self.all_skills, self.desktop.name, output)
             archive = output / self.desktop.archive_name
             checksum = output / f"{self.desktop.archive_name}.sha256"
+            self.assertEqual(archive.name, "desktop.zip")
             self.assertTrue(archive.is_file())
             self.assertTrue(checksum.is_file())
             self.assertEqual(archive.read_bytes(), skills.package_bytes(self.desktop))

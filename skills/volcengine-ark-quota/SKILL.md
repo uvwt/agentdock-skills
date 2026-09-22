@@ -1,7 +1,6 @@
 ---
 name: volcengine-ark-quota
 description: Query VolcEngine Ark Coding Plan quota usage from the console endpoint using a logged-in cookie or Playwright storage state.
-version: 0.1.7
 ---
 
 # VolcEngine Ark Quota Skill

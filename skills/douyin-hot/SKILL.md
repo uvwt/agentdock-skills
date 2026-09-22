@@ -1,7 +1,6 @@
 ---
 name: douyin-hot
 description: 获取抖音实时热榜并返回标题、热度和跳转链接。
-version: 1.0.9
 ---
 
 # 抖音热榜获取技能 | Douyin Hot List Fetcher

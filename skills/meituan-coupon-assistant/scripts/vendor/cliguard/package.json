@@ -1,0 +1,5 @@
+{
+  "name": "@sec/cliguard",
+  "version": "1.3.0-agentdock.1",
+  "description": "CLIGuard 请求签名核心的 AgentDock 固化适配"
+}

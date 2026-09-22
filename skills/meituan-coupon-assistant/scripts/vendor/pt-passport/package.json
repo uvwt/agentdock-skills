@@ -1,0 +1,5 @@
+{
+  "name": "@mtuser/pt-passport",
+  "version": "0.1.4",
+  "description": "美团 Passport 用户授权登录 CLI 工具（上游运行文件，AgentDock 固化副本）"
+}
