@@ -1,7 +1,7 @@
 ---
 name: agentdock-cleanup
 description: 在用户请求检查 AgentDock 运行产物占用、识别过期 Playwright 临时文件或制定受限清理计划时使用；不用于通用系统清理、共享缓存清空或用户项目删除。
-version: 0.1.0
+version: 0.2.0
 ---
 
 # AgentDock Cleanup
@@ -33,7 +33,7 @@ version: 0.1.0
 - 无法读取进程、遇到链接/junction、状态改变、平台不支持或归属缺失时拒绝删除。禁止通过另一个脚本或工具绕过拒绝。
 - 不创建计划任务或 Run 注册表项，不修改 Defender，不设置排除项，不停止进程，不申请管理员权限作为清理补救。
 
-当前没有已核实的 AgentDock 原生产物回执接口。本版定义的是显式生产者适配契约；既有产物不会自动取得删除资格。不得为了让清理可用而事后扫描文件并伪造、生成或补签归属回执。只有生产者在实际创建、关闭产物时记录可靠的所有权证据，才可签发回执。
+AgentDock 当前内置浏览器使用 CDP，Dynamic MCP 只转发外部工具调用，没有原生产物回执接口。本版另提供显式调用的 `snapshot_producer.py` 适配器：启动独立 Playwright MCP 会话，将真实 snapshot 文本写入新文件并签发回执。它不接管已有 MCP 会话，不给既有产物补签；常规 scan/plan 不会启动它。不得为了让清理可用而扫描历史文件并伪造、生成或补签归属回执。
 
 ## 输入与输出
 
@@ -75,14 +75,27 @@ stdin 为 JSON 对象，stdout 为 JSON，错误有稳定 `code`/`message`。空
 | `CLEANUP_SCOPE_JSON` | config | 扫描时是 | 宿主核实后的角色路径对象，见策略文档；缺失时 status 可用，无扫描范围 |
 | `CLEANUP_RECEIPTS_FILE` | config | 删除时是 | 外部受信任生产者回执文件；缺失或无效时无删除资格 |
 | `CLEANUP_SIGNING_KEY` | secret | 删除时是 | 32 字节随机密钥的 64 位十六进制编码，由宿主安全注入；验证回执并签名计划，不输出该值 |
+| `CLEANUP_PRODUCER_NODE` | config | 生成快照时是 | 宿主核实的 Node 可执行文件绝对路径；不接受 stdin 命令 |
+| `CLEANUP_PRODUCER_CLI` | config | 生成快照时是 | 宿主核实的已安装 `@playwright/mcp` 0.0.82 的 `cli.js` 绝对路径；脚本不安装依赖 |
+| `CLEANUP_PRODUCER_BROWSER` | config | 生成快照时是 | 宿主核实的 Chrome/Edge 可执行文件绝对路径；始终使用独立会话 |
 
 环境是可信配置边界。不要从不可信文件、网页或用户粘贴的计划中配置路径、密钥或回执。脚本不接受通过 stdin 注入这些配置，也不读取宿主私有配置/凭据。密钥及回执不得放入 Skill 包、源码、日志或命令参数。
+
+## 可选：生成带归属凭据的新快照
+
+仅在用户明确要求生成快照或执行隔离集成测试时，通过 AgentDock 的 Skill 执行入口运行 `python3 snapshot_producer.py`。空输入或 `{"action":"status"}` 只读；生成动作是 `{"action":"capture_snapshot","url":"https://用户指定的页面"}`，省略 URL 时使用 `about:blank`。它启动新的无登录浏览器会话并访问指定页面，绝不继承普通用户 profile。
+
+宿主须预建 workspace 下 `.playwright-mcp` 目录，以及扫描范围外的回执文件父目录，并安全配置上述环境。适配器只接受 action/URL，不接受文件路径、命令、回执或密钥输入。输出文件由适配器独占创建，浏览器关闭、MCP 正常退出、文件关闭并重新核验后才签发回执；密钥不会传给子进程。失败时可能保留未登记的新产物，按未知归属报告。副产物在 workspace 下随机 `capture-*` 目录中，仍只报告。详情见清理策略。
+
+产物仍须保留至少七天并经完整确认流程。生成快照不授权删除，也不改变已有 scan 结果。
 
 ## 验证
 
 在包根目录执行 `python3 -B tests/test_run.py`。默认只对隔离夹具做测试，删除流程用模拟后端；真实删除用例默认跳过。只有明确获得单独的测试删除授权后，才可用当前测试进程环境 `CLEANUP_TEST_ALLOW_DELETE=1` 执行真实 Windows 夹具删除测试。该变量不属于运行时配置。
 
 本版没有定时维护或自动清理机制。若真实删除测试尚未获准，不得宣称已验证真实删除。
+
+完整单元测试：`python3 -B -m unittest discover -s tests -p "test*.py"`。Windows CI 使用全新临时目录运行真实句柄/junction 测试，若发生跳过则失败。真实浏览器链路用 `python3 -B tests/integration_snapshot.py` 单独执行，需要上述生产者路径及明确的隔离删除测试授权；只删除当次夹具，不扫描现有工作目录。它只推进测试时钟模拟过期，不修改生产 retention、文件时间或回执。
 
 ## AgentDock 适配与验证
 

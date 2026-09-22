@@ -14,7 +14,7 @@ import subprocess
 import sys
 import time
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 POLICY_VERSION = 1
 RETENTION_SECONDS = 7 * 86400
 PLAN_SECONDS = 900

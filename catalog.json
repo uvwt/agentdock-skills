@@ -4,7 +4,7 @@
   "skills": [
     {
       "name": "agentdock-cleanup",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "description": "在用户请求检查 AgentDock 运行产物占用、识别过期 Playwright 临时文件或制定受限清理计划时使用；不用于通用系统清理、共享缓存清空或用户项目删除。",
       "path": "skills/agentdock-cleanup",
       "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/agentdock-cleanup"

@@ -76,6 +76,16 @@ The mechanism uses the Windows [CreateFile sharing contract](https://learn.micro
 
 Reporting scans are metadata snapshots and can become stale. Link changes during a read-only size estimate do not confer deletion permission; mutation uses the separate locked revalidation path. On unsupported platforms the real process snapshot is incomplete and `clean` is unavailable.
 
+## Optional snapshot producer (0.2.0)
+
+The inspected AgentDock core (ad51001515a2b1b82baa31281970e0b9f67f28e9) uses CDP for its native browser; Dynamic MCP does not expose a receipt hook. `snapshot_producer.py` is therefore an explicit Skill execution adapter, not a modification to the core or an interception of existing MCP calls. Only snapshots created through this entrypoint receive receipts. Ordinary Dynamic MCP output remains unproven.
+
+The host selects a trusted installation of Node, Playwright MCP 0.0.82 and Chrome/Edge through the documented environment. The package-name/version check is compatibility validation, not a supply-chain signature. Host installation integrity and protecting the signing key remain prerequisites. A fresh headless isolated browser session receives only a small OS environment allowlist, never the cleanup key, receipt path or arbitrary Node options. Only navigate, snapshot and close are called. RPC is size/time bounded; failures never issue receipts. A random new output directory prevents the upstream MCP's output retention from touching pre-existing files. These auxiliary files are report-only; no recursive cleanup is introduced.
+
+The adapter uses CREATE_NEW with exclusive sharing and pinned ancestors, writes only returned snapshot text, closes it, then reopens it exclusively and compares its new-file identity and content before recording the final fingerprint. It does not accept a target path or a registration operation. The registry is outside scan roots. A persistent exclusive `.lock` file serializes producer updates and pins its ancestors; the old registry is read through an exclusive, link-checked handle. Updated contents are flushed to a newly created sibling file and atomically replace the registry only after a successful write. Failed commits retain old receipts and may leave `.pending-*` files; these files are not cleanup candidates. Power-loss durability still depends on Windows/filesystem guarantees. Registry compaction/recovery is future work. Failed production may leave an unregistered artifact, which stays ineligible.
+
+The isolated browser integration test serves a newly created loopback page and checks its unique heading in the real snapshot. Expiry is simulated by moving only the test clock eight days forward. Real process detection, dry-run preservation, signed plan confirmation, native deletion and absence verification remain active. This test is explicit opt-in; the regular Windows CI suite does not depend on a browser installation.
+
 ## Stable outcomes
 
 | Code | Meaning |

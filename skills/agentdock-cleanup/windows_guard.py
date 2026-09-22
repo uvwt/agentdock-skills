@@ -77,7 +77,7 @@ class LockedFile:
 
 
 @contextmanager
-def locked_file(raw):
+def locked_file(raw, *, create=False, write=False):
     if os.name != "nt":
         raise OSError("Windows required")
     import msvcrt
@@ -95,15 +95,16 @@ def locked_file(raw):
             handles.append(handle)
             _check_handle(k, handle, parent, True)
         # GENERIC_READ | DELETE, share mode zero: no competing read/write/delete handles.
-        file_handle = k.CreateFileW(str(p), 0x80000000 | 0x10000, 0, None, 3, 0x00200000, None)
+        access = 0x80000000 | (0x40000000 if write else 0x10000)
+        file_handle = k.CreateFileW(str(p), access, 0, None, 1 if create else 3, 0x00200000, None)
         if file_handle == ctypes.c_void_p(-1).value:
             file_handle = None
             raise ctypes.WinError(ctypes.get_last_error())
         _check_handle(k, file_handle, p, False)
         handle = file_handle
-        fd = msvcrt.open_osfhandle(file_handle, os.O_RDONLY | os.O_BINARY)
+        fd = msvcrt.open_osfhandle(file_handle, (os.O_RDWR if write else os.O_RDONLY) | os.O_BINARY)
         file_handle = None  # fd now owns the handle.
-        stream = os.fdopen(fd, "rb")
+        stream = os.fdopen(fd, "r+b" if write else "rb")
         yield LockedFile(k, handle, stream)
     finally:
         if stream is not None:
