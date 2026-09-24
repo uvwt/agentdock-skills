@@ -11,7 +11,7 @@ description: Use this skill when calling the local CloudSaver API for status che
 
 - CloudSaver 地址仅允许 localhost/127.0.0.1。
 - 登录凭据与 token 不写入 Skill 包。
-- 持久化状态位于 `~/.agentdock/skill-data/cloudsaver/`。
+- AgentDock managed 运行时的持久化状态位于宿主注入的 `SKILL_DATA_DIR`；其他宿主默认使用 `$XDG_STATE_HOME/cloudsaver-skill/`，未设置 XDG 时使用 `~/.local/state/cloudsaver-skill/`。
 
 ## 辅助脚本执行
 

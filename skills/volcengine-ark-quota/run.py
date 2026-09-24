@@ -73,8 +73,13 @@ def default_storage_path() -> Path:
     configured = os.environ.get("VOLCENGINE_ARK_STORAGE_STATE", "").strip()
     if configured:
         return Path(configured).expanduser()
-    agentdock_home = Path(os.environ.get("AGENTDOCK_HOME", Path.home() / ".agentdock"))
-    return agentdock_home / "skill-data" / "volcengine-ark-quota" / "storage_state.json"
+    managed = os.environ.get("SKILL_DATA_DIR", "").strip()
+    if managed:
+        return Path(managed).expanduser() / "storage_state.json"
+    state_home = os.environ.get("XDG_STATE_HOME", "").strip()
+    if state_home:
+        return Path(state_home).expanduser() / "volcengine-ark-quota-skill" / "storage_state.json"
+    return Path.home() / ".local" / "state" / "volcengine-ark-quota-skill" / "storage_state.json"
 
 
 def make_cookie(name: str, value: str, domain: str, path: str = "/", secure: bool = True) -> Cookie:

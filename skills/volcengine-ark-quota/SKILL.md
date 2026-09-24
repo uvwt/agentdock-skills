@@ -57,7 +57,7 @@ description: Query VolcEngine Ark Coding Plan quota usage from the console endpo
 ## 安全边界
 
 - Skill 不会把 Cookie、CSRF、API Key 等敏感值输出到 stdout。
-- Skill 包内不保存登录态；持久登录态应放在 `skill-data/volcengine-ark-quota/`；环境变量单独放在 `~/.agentdock/env/skill/volcengine-ark-quota.env`。
+- Skill 包内不保存登录态；AgentDock managed 运行时的持久登录态放在宿主注入的 `SKILL_DATA_DIR`，其他宿主使用 XDG 状态目录；环境变量单独由宿主管理。
 - 这是控制台内部接口封装，不是火山引擎公开 OpenAPI；如果前端接口改版，Skill 可能需要更新。
 
 ## 辅助脚本执行

@@ -8,11 +8,20 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+def default_data_dir():
+    managed = os.environ.get("SKILL_DATA_DIR", "").strip()
+    if managed:
+        return os.path.expanduser(managed)
+    state_home = os.environ.get("XDG_STATE_HOME", "").strip()
+    if state_home:
+        return os.path.join(os.path.expanduser(state_home), "cloudsaver-skill")
+    return os.path.expanduser("~/.local/state/cloudsaver-skill")
+
+
 ACTION = sys.argv[1] if len(sys.argv) > 1 else "status"
 SKILL = os.environ.get("SKILL_NAME", "cloudsaver")
 BASE_URL = os.environ.get("CLOUDSAVER_BASE_URL", "http://127.0.0.1:8008").rstrip("/")
-AGENTDOCK_HOME = os.environ.get("AGENTDOCK_HOME", os.path.expanduser("~/.agentdock"))
-DATA_DIR = os.environ.get("CLOUDSAVER_DATA_DIR", os.path.join(AGENTDOCK_HOME, "skill-data", "cloudsaver"))
+DATA_DIR = os.environ.get("CLOUDSAVER_DATA_DIR") or default_data_dir()
 TOKEN_FILE = os.environ.get("CLOUDSAVER_TOKEN_FILE", os.path.join(DATA_DIR, "token"))
 STATS_TOKEN_FILE = os.path.join(DATA_DIR, "stats-token")
 ENV_FILE = os.environ.get("CLOUDSAVER_ENV_FILE", os.path.join(DATA_DIR, ".env"))

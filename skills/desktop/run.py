@@ -107,7 +107,13 @@ def agentdock_root():
 
 
 def skill_data_root():
-    return agentdock_root() / "skill-data" / "desktop"
+    managed = os.environ.get("SKILL_DATA_DIR", "").strip()
+    if managed:
+        return Path(managed).expanduser().resolve()
+    state_home = os.environ.get("XDG_STATE_HOME", "").strip()
+    if state_home:
+        return (Path(state_home).expanduser() / "desktop-skill").resolve()
+    return (Path.home() / ".local" / "state" / "desktop-skill").resolve()
 
 
 def ensure_private_dir(path):

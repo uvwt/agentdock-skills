@@ -13,8 +13,19 @@ from collections import Counter
 from pathlib import Path
 
 VERSION = "0.1.8"
-AGENTDOCK_HOME = Path(os.environ.get("AGENTDOCK_HOME", Path.home() / ".agentdock"))
-STATE_DIR = AGENTDOCK_HOME / "skill-data" / "spotify-web-api"
+
+
+def default_state_dir():
+    managed = os.environ.get("SKILL_DATA_DIR", "").strip()
+    if managed:
+        return Path(managed).expanduser()
+    state_home = os.environ.get("XDG_STATE_HOME", "").strip()
+    if state_home:
+        return Path(state_home).expanduser() / "spotify-web-api-skill"
+    return Path.home() / ".local" / "state" / "spotify-web-api-skill"
+
+
+STATE_DIR = default_state_dir()
 STATE_FILE = STATE_DIR / "state.json"
 DEFAULT_REDIRECT_URI = "http://127.0.0.1:8765/callback"
 DEFAULT_SCOPES = [
