@@ -41,15 +41,23 @@ class SessionPathTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             result = self.run_session_status(
                 {"XDG_STATE_HOME": temp},
-                unset=("OPENLIST_SESSION_FILE",),
+                unset=("OPENLIST_SESSION_FILE", "SKILL_DATA_DIR"),
             )
             self.assertEqual(result["session_file"], str(Path(temp) / "openlist-skill" / "session.json"))
+
+    def test_managed_skill_data_dir_precedes_portable_default(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            result = self.run_session_status(
+                {"SKILL_DATA_DIR": temp, "XDG_STATE_HOME": str(Path(temp) / "xdg")},
+                unset=("OPENLIST_SESSION_FILE",),
+            )
+            self.assertEqual(result["session_file"], str(Path(temp) / "session.json"))
 
     def test_home_state_directory_is_used_without_xdg(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             result = self.run_session_status(
                 {"HOME": temp},
-                unset=("OPENLIST_SESSION_FILE", "XDG_STATE_HOME"),
+                unset=("OPENLIST_SESSION_FILE", "SKILL_DATA_DIR", "XDG_STATE_HOME"),
             )
             expected = Path(temp) / ".local" / "state" / "openlist-skill" / "session.json"
             self.assertEqual(result["session_file"], str(expected))

@@ -18,8 +18,19 @@ SKILL_VERSION = "0.1.8"
 DEFAULT_BASE_URL = "http://127.0.0.1:5700"
 DEFAULT_DATA_DIR = Path("/Volumes/KIOXIA/Docker/qinglong/data")
 DEFAULT_COMPOSE_DIR = Path("/Volumes/KIOXIA/Docker/qinglong")
-AGENTDOCK_HOME = Path(os.environ.get("AGENTDOCK_HOME", Path.home() / ".agentdock"))
-DEFAULT_CONFIG_PATH = AGENTDOCK_HOME / "skill-data" / "qinglong" / "config.json"
+
+
+def default_skill_data_dir() -> Path:
+    managed = os.environ.get("SKILL_DATA_DIR", "").strip()
+    if managed:
+        return Path(managed).expanduser()
+    state_home = os.environ.get("XDG_STATE_HOME", "").strip()
+    if state_home:
+        return Path(state_home).expanduser() / "qinglong-skill"
+    return Path.home() / ".local" / "state" / "qinglong-skill"
+
+
+DEFAULT_CONFIG_PATH = default_skill_data_dir() / "config.json"
 SENSITIVE_KEYS = {
     "access_token",
     "api_key",

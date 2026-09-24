@@ -40,6 +40,9 @@ def load_input() -> dict[str, Any]:
 
 
 def default_session_path() -> Path:
+    managed = os.environ.get("SKILL_DATA_DIR", "").strip()
+    if managed:
+        return Path(managed).expanduser() / "session.json"
     state_home = os.environ.get("XDG_STATE_HOME", "").strip()
     if state_home:
         return Path(state_home).expanduser() / "openlist-skill" / "session.json"
