@@ -15,7 +15,7 @@ import time
 import urllib.parse
 from pathlib import Path
 
-VERSION = "1.0.12"
+VERSION = "1.0.13"
 SEP = "\x1f"
 STATE_MAX_AGE_SECONDS = 90
 
@@ -340,12 +340,38 @@ def applescript_string(value):
 
 
 def apply_command_warnings(res, text):
+    # 只解析失败命令的错误输出。成功结果里可能包含用户控制的文本（例如窗口标题），
+    # 不能因为碰巧出现 “-25211” 这类字符串就改写真实执行结果。
+    if res.get("command_ok") is True or (res.get("command_ok") is None and res.get("ok") is True):
+        res.setdefault("permission_ok", True)
+        return
+
     lower = (text or "").lower()
-    if any(marker in lower for marker in ["accessibility privileges not enabled", "not allowed assistive access", "不允许辅助访问", "不允许发送按键"]):
+    accessibility_markers = [
+        "accessibility privileges not enabled",
+        "not allowed assistive access",
+        "不允许辅助访问",
+        "不允许发送按键",
+        "(-25211)",
+        "kaxerrorapidisabled",
+    ]
+    automation_markers = [
+        "not authorized to send apple events",
+        "未获得授权将 apple 事件发送给",
+        "不允许将 apple 事件发送给",
+        "(-1743)",
+        "erraeeventnotpermitted",
+    ]
+    if any(marker in lower for marker in accessibility_markers):
         res["ok"] = False
         res["permission_ok"] = False
         res["error_code"] = "ACCESSIBILITY_NOT_TRUSTED"
-        res["warnings"] = ["macOS Accessibility/Automation permission is not available; command may not affect the target app"]
+        res["warnings"] = ["macOS Accessibility permission is not available; UI automation cannot inspect or control application windows"]
+    elif any(marker in lower for marker in automation_markers):
+        res["ok"] = False
+        res["permission_ok"] = False
+        res["error_code"] = "AUTOMATION_NOT_PERMITTED"
+        res["warnings"] = ["macOS Automation permission for System Events is not available"]
     else:
         res.setdefault("permission_ok", True)
 
@@ -371,22 +397,57 @@ def preflight(args):
     if not is_darwin():
         warnings.append("desktop automation is currently macOS-only")
         return {"ok": False, "checks": checks, "warnings": warnings}
+
     if bool_arg(args, "check_screenshot", True):
         path = artifact_root() / "preflight" / f"preflight-{int(time.time()*1000)}.png"
         ensure_private_dir(path.parent)
-        res = run_process(["screencapture", "-x", str(path)], timeout=15, operation="screencapture")
-        if res.get("ok") and path.exists():
-            secure_private_file(path)
-        checks["screenshot_ok"] = res.get("ok", False)
-        if not res.get("ok"):
-            warnings.append("screencapture failed; grant Screen Recording permission to the AgentDock process")
-            checks["screenshot_error"] = res.get("stdout") or res.get("error")
+        try:
+            res = run_process(["screencapture", "-x", str(path)], timeout=15, operation="screencapture")
+            screenshot_ok = bool(res.get("ok")) and path.exists() and path.stat().st_size > 0
+            checks["screenshot_ok"] = screenshot_ok
+            if not screenshot_ok:
+                warnings.append("screencapture failed; grant Screen Recording permission to the AgentDock process")
+                checks["screenshot_error"] = res.get("stdout") or res.get("error")
+        finally:
+            # preflight 只验证能力，不保留一张用户从未请求的截图。
+            path.unlink(missing_ok=True)
+
     if bool_arg(args, "check_applescript", True):
-        res = run_applescript('tell application "System Events" to count processes', operation="applescript_preflight", timeout=15)
-        checks["applescript_ok"] = res.get("ok", False)
-        if not res.get("ok"):
-            warnings.append("AppleScript/System Events failed; grant Accessibility/Automation permission to the AgentDock process")
-            checks["applescript_error"] = res.get("stdout") or res.get("error")
+        automation = run_applescript(
+            'tell application "System Events" to count processes',
+            operation="applescript_preflight",
+            timeout=15,
+        )
+        automation_ok = bool(automation.get("ok"))
+        checks["applescript_ok"] = automation_ok
+        checks["system_events_automation_ok"] = automation_ok
+        if not automation_ok:
+            warnings.append("AppleScript/System Events failed; grant Automation permission to the AgentDock process")
+            checks["applescript_error"] = automation.get("stdout") or automation.get("error")
+            checks["accessibility_ok"] = None
+            checks["accessibility_status"] = "not_checked"
+        else:
+            # count processes 只证明 Apple Events 可达，不会触发受 AX 保护的窗口读取。
+            # 读取前台应用的窗口数量无副作用，但会真实经过 Accessibility 权限检查。
+            accessibility = run_applescript(
+                'tell application "System Events" to get count of windows of (first application process whose frontmost is true)',
+                operation="accessibility_preflight",
+                timeout=15,
+            )
+            if accessibility.get("ok"):
+                checks["accessibility_ok"] = True
+                checks["accessibility_status"] = "ready"
+            elif accessibility.get("error_code") == "ACCESSIBILITY_NOT_TRUSTED":
+                checks["accessibility_ok"] = False
+                checks["accessibility_status"] = "not_granted"
+                warnings.append("Accessibility probe failed; grant or refresh Accessibility permission for the AgentDock process")
+                checks["accessibility_error"] = accessibility.get("stdout") or accessibility.get("error")
+            else:
+                checks["accessibility_ok"] = None
+                checks["accessibility_status"] = "unknown"
+                warnings.append("Accessibility could not be verified with a real window-read probe")
+                checks["accessibility_error"] = accessibility.get("stdout") or accessibility.get("error")
+
     return {"ok": len(warnings) == 0, "checks": checks, "warnings": warnings}
 
 

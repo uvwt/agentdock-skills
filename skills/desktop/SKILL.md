@@ -10,6 +10,7 @@ AgentDock 的 macOS 桌面自动化能力已经从 core 工具拆分为此 Skill
 ## 调用入口
 
 - `skill_action=observe`：`action=preflight | list_apps | app_state | window_list | snapshot | snapshot_app`。
+- `preflight` 会分别报告 Screen Recording、System Events Automation 与 Accessibility/AX；无法实际验证 AX 时返回 unknown/not_checked，不再用普通 AppleScript 成功代表桌面能力全部就绪。
 - `skill_action=act`：`action=focus | move | click | double_click | scroll | drag | type | set_value | secondary_action | hotkey | wait`。
 - `skill_action=clipboard-read` / `skill_action=clipboard-write`：读写剪贴板。
 
@@ -31,7 +32,7 @@ printf '%s' '{"skill_action":"<动作>"}' | python3 run.py
 
 | 动作 | 用途 |
 |---|---|
-| `status` | Run a desktop preflight check and report desktop automation readiness. |
+| `status` | Run a desktop preflight check and separately report Screen Recording, System Events Automation, and Accessibility/AX readiness. |
 | `observe` | Unified macOS desktop observation action: preflight, list_apps, app_state, window_list, snapshot, or snapshot_app. |
 | `act` | Unified macOS desktop action: focus, move, click, double_click, scroll, drag, type, set_value, secondary_action, hotkey, or wait. |
 | `clipboard-read` | Read macOS clipboard text. |
