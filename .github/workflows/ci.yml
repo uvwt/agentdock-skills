@@ -42,3 +42,74 @@ jobs:
             echo "==> $test_file"
             (cd "$test_dir" && python3 "$test_name")
           done < <(find skills -name 'test*.py' -type f -print0 | sort -z)
+
+  cleanup-windows:
+    name: Cleanup on Windows (Python ${{ matrix.python-version }})
+    runs-on: windows-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.13']
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONUTF8: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Prepare isolated test directories
+        run: |
+          $testRoot = Join-Path $env:RUNNER_TEMP ("agentdock-cleanup-" + [guid]::NewGuid().ToString('N'))
+          New-Item -ItemType Directory -Path $testRoot | Out-Null
+          "TEMP=$testRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "TMP=$testRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "PYTHONPYCACHEPREFIX=$(Join-Path $testRoot 'pycache')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Validate repository
+        run: python -B scripts/skills.py validate
+
+      - name: Check catalog
+        run: python -B scripts/skills.py catalog --check
+
+      - name: Check cleanup and tooling syntax
+        run: python -m compileall -q scripts skills/agentdock-cleanup
+
+      - name: Test repository tooling
+        run: python -B scripts/test_skills.py
+
+      - name: Test cleanup including native Windows fixtures
+        working-directory: skills/agentdock-cleanup
+        env:
+          # Authorizes deletion only of the suite's newly created temporary fixtures.
+          CLEANUP_TEST_ALLOW_DELETE: '1'
+        run: |
+          @'
+          import os
+          from pathlib import Path
+          import sys
+          import tempfile
+          import unittest
+
+          if os.name != "nt":
+              raise SystemExit("The cleanup integration suite requires Windows")
+          runner_temp = Path(os.environ["RUNNER_TEMP"]).resolve()
+          fixture_temp = Path(tempfile.gettempdir()).resolve()
+          if runner_temp not in fixture_temp.parents:
+              raise SystemExit("Test TEMP must be an isolated directory within RUNNER_TEMP")
+          suite = unittest.defaultTestLoader.discover("tests", pattern="test*.py")
+          result = unittest.TextTestRunner(verbosity=2).run(suite)
+          if result.skipped:
+              print("Cleanup tests must not be skipped on Windows", file=sys.stderr)
+          sys.exit(0 if result.wasSuccessful() and result.testsRun > 0 and not result.skipped else 1)
+          '@ | python -B -

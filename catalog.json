@@ -3,6 +3,13 @@
   "repository": "https://github.com/uvwt/agentdock-skills",
   "skills": [
     {
+      "name": "agentdock-cleanup",
+      "version": "0.2.0",
+      "description": "在用户请求检查 AgentDock 运行产物占用、识别过期 Playwright 临时文件或制定受限清理计划时使用；不用于通用系统清理、共享缓存清空或用户项目删除。",
+      "path": "skills/agentdock-cleanup",
+      "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/agentdock-cleanup"
+    },
+    {
       "name": "baidu-netdisk",
       "description": "Use this skill when managing Baidu Netdisk files through the bdpan CLI inside the application data scope.",
       "path": "skills/baidu-netdisk",
