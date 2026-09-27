@@ -19,6 +19,35 @@ AgentDock 的 macOS 桌面自动化能力已经从 core 工具拆分为此 Skill
 
 - 动作参数不支持别名：`skill_action=act` 必须使用 `action` 枚举值；`secondary_action` 的辅助动作名必须放在 `ax_action`；`wait` 使用 `ms`。
 
+## Preflight readiness
+
+`status` and `observe` with `action=preflight` check Screen Capture, Apple Events,
+and Accessibility independently. The `readiness` object reports `passed`,
+`failed`, or `not_checked` for each capability. Legacy `checks.screenshot_ok`
+and `checks.applescript_ok` remain available; `checks.accessibility_ok` reports
+a real AX window-property read against the frontmost application. A successful
+System Events process count alone does not establish AX access. Window names
+are not returned by this diagnostic.
+
+All three checks run by default. Set `check_screenshot`, `check_applescript`, or
+`check_accessibility` to `false` to skip one; skipped checks remain unverified,
+their `checks.*_ok` values are `null`, and overall `ok` is `false`. A successful
+screenshot command must also produce a PNG header with nonzero dimensions.
+Temporary preflight captures are removed after inspection.
+
+Run the check through AgentDock's actual `exec_command` Skill execution path.
+Permissions granted to a separate terminal or SSH process do not prove the
+AgentDock process has permission. The check reads window properties and does
+not inject input; a pass does not guarantee every target application or input
+action will succeed.
+
+If Apple Events passes but AX fails, inspect the current AgentDock executable
+and its Accessibility permission, particularly after an update. A permission
+switch may still refer to an old code identity. Reauthorize the current process
+and repeat the real check. If a System Events restart is needed, obtain user
+confirmation first because it can interrupt other automation. Preflight does
+not reset TCC, change permissions, or restart system processes.
+
 ## 辅助脚本执行
 
 Skill 本体是本说明文档。确需调用包内辅助脚本时，在 Skill 包根目录使用相对路径执行；运行宿主负责切换到包根目录并把所需变量注入当前子进程。

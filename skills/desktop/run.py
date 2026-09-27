@@ -320,6 +320,8 @@ def run_process(argv, input_text=None, timeout=30, operation="command", allow_fa
         completed = subprocess.run(argv, input=input_text, text=True, capture_output=True, timeout=timeout, check=False, env=os.environ.copy())
     except subprocess.TimeoutExpired:
         return {"ok": False, "command_ok": False, "operation": operation, "error": "command timed out", "error_code": "COMMAND_TIMEOUT", "argv": argv[:1]}
+    except OSError as exc:
+        return {"ok": False, "command_ok": False, "operation": operation, "error": str(exc), "error_code": "COMMAND_START_FAILED", "argv": argv[:1]}
     stdout = (completed.stdout or "") + (completed.stderr or "")
     res = {"ok": completed.returncode == 0, "command_ok": completed.returncode == 0, "operation": operation, "stdout": stdout, "exit_code": completed.returncode}
     if completed.returncode != 0:
@@ -362,32 +364,70 @@ def parse_pair(value):
 
 def preflight(args):
     checks = {"os": platform.system().lower(), "supported": is_darwin(), "skill_version": VERSION}
+    readiness = {"screen_capture": "not_checked", "apple_events": "not_checked", "accessibility": "not_checked"}
     warnings = []
     for name in ["screencapture", "osascript", "pbcopy", "pbpaste", "cliclick"]:
         exists = command_exists(name)
         checks[name] = exists
         if name == "cliclick" and not exists:
             warnings.append("cliclick not found; desktop mouse/keyboard actions require: brew install cliclick")
+        elif not exists:
+            warnings.append(f"{name} not found; its desktop operations are unavailable")
     if not is_darwin():
         warnings.append("desktop automation is currently macOS-only")
-        return {"ok": False, "checks": checks, "warnings": warnings}
+        return {"ok": False, "checks": checks, "readiness": readiness, "warnings": warnings}
+    checks.update({"screenshot_ok": None, "applescript_ok": None, "accessibility_ok": None})
     if bool_arg(args, "check_screenshot", True):
-        path = artifact_root() / "preflight" / f"preflight-{int(time.time()*1000)}.png"
+        path = artifact_root() / "preflight" / f"preflight-{time.time_ns()}.png"
         ensure_private_dir(path.parent)
-        res = run_process(["screencapture", "-x", str(path)], timeout=15, operation="screencapture")
-        if res.get("ok") and path.exists():
-            secure_private_file(path)
-        checks["screenshot_ok"] = res.get("ok", False)
-        if not res.get("ok"):
-            warnings.append("screencapture failed; grant Screen Recording permission to the AgentDock process")
-            checks["screenshot_error"] = res.get("stdout") or res.get("error")
+        try:
+            res = run_process(["screencapture", "-x", str(path)], timeout=15, operation="screencapture")
+            valid_image = False
+            if res.get("ok") and path.is_file():
+                secure_private_file(path)
+                with path.open("rb") as capture:
+                    info = png_info(capture.read(24))
+                valid_image = info["width"] > 0 and info["height"] > 0
+            checks["screenshot_ok"] = bool(res.get("ok") and valid_image)
+            readiness["screen_capture"] = "passed" if checks["screenshot_ok"] else "failed"
+            if not checks["screenshot_ok"]:
+                warnings.append("Screen capture failed; verify the AgentDock process's Screen Recording permission and graphical session")
+                checks["screenshot_error"] = res.get("stdout") or res.get("error") or "screencapture produced no valid PNG image"
+        except OSError as exc:
+            checks["screenshot_ok"] = False
+            readiness["screen_capture"] = "failed"
+            checks["screenshot_error"] = str(exc)
+            warnings.append("Screen capture artifact could not be read; verify the graphical session and artifact directory")
+        finally:
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                warnings.append("Temporary preflight capture could not be removed; inspect the private artifact directory")
+    else:
+        warnings.append("Screen capture was not checked; desktop readiness is unverified")
     if bool_arg(args, "check_applescript", True):
         res = run_applescript('tell application "System Events" to count processes', operation="applescript_preflight", timeout=15)
         checks["applescript_ok"] = res.get("ok", False)
+        readiness["apple_events"] = "passed" if checks["applescript_ok"] else "failed"
         if not res.get("ok"):
-            warnings.append("AppleScript/System Events failed; grant Accessibility/Automation permission to the AgentDock process")
+            warnings.append("AppleScript/System Events failed; verify the AgentDock process's Automation permission")
             checks["applescript_error"] = res.get("stdout") or res.get("error")
-    return {"ok": len(warnings) == 0, "checks": checks, "warnings": warnings}
+    else:
+        warnings.append("Apple Events was not checked; desktop readiness is unverified")
+    if bool_arg(args, "check_accessibility", True):
+        # Reading real window properties exercises AX; process enumeration alone does not.
+        script = 'tell application "System Events" to tell (first application process whose frontmost is true) to get name of every window'
+        res = run_applescript(script, operation="accessibility_preflight", timeout=15)
+        checks["accessibility_ok"] = res.get("ok", False)
+        readiness["accessibility"] = "passed" if checks["accessibility_ok"] else "failed"
+        if not res.get("ok"):
+            checks["accessibility_error"] = res.get("stdout") or res.get("error")
+            warnings.append("Real AX window reading failed; verify Accessibility permission for the running AgentDock process and an active desktop session")
+            if checks["applescript_ok"]:
+                warnings.append("System Events process enumeration passed but AX failed. After an update, permission switches may refer to an older executable identity. Reauthorize the current AgentDock process; if AX still fails, a user-approved System Events restart may be needed")
+    else:
+        warnings.append("Accessibility was not checked; desktop readiness is unverified")
+    return {"ok": len(warnings) == 0 and all(value == "passed" for value in readiness.values()), "checks": checks, "readiness": readiness, "warnings": warnings}
 
 
 def png_info(data):
