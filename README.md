@@ -75,6 +75,7 @@
 
 | Skill | 能做什么 |
 | --- | --- |
+| [`agentdock-cleanup`](skills/agentdock-cleanup/SKILL.md) | 只读检查 AgentDock 运行产物并制定有归属凭据的受限清理计划 |
 | [`codex-usage`](skills/codex-usage/SKILL.md) | 查询本机 Codex CLI 账号状态和使用配额 |
 | [`grok-quota`](skills/grok-quota/SKILL.md) | 查询 Grok 周配额、计划、积分和使用明细 |
 | [`qinglong`](skills/qinglong/SKILL.md) | 通过官方 API 管理青龙面板状态、环境变量、定时任务和日志 |
