@@ -87,6 +87,12 @@
       "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/multi-agent-orchestration"
     },
     {
+      "name": "nexusdock-rest",
+      "description": "Use when an agent, CLI, backend, or workflow needs to discover NexusDock devices/capabilities and execute AgentDock tools through the NexusDock REST API without MCP. Covers Bearer auth, dynamic Tool JSON Schema, contract_hash validation, durable executions, polling/SSE status, cancellation, idempotency, and unknown-result safety. Do not use for NexusDock account/admin UI, billing, or MCP client setup.",
+      "path": "skills/nexusdock-rest",
+      "source_url": "https://github.com/uvwt/agentdock-skills/tree/main/skills/nexusdock-rest"
+    },
+    {
       "name": "ntfy",
       "description": "Use this skill when sending notifications via ntfy.sh or self-hosted ntfy servers.",
       "path": "skills/ntfy",

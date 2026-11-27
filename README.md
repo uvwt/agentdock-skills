@@ -38,6 +38,7 @@
 | [`find-skills-skill`](skills/find-skills-skill/SKILL.md) | 搜索和发现可用的 OpenClaw Skills |
 | [`grill-me`](skills/grill-me/SKILL.md) | 通过连续追问把计划或设计中的关键决策澄清完整 |
 | [`multi-agent-orchestration`](skills/multi-agent-orchestration/SKILL.md) | 编排多个 Agent 长期协作、分工、独立门禁和可恢复状态 |
+| [`nexusdock-rest`](skills/nexusdock-rest/SKILL.md) | 不依赖 MCP，通过 OAuth Device Flow 配对码与 NexusDock REST API 发现并执行远程设备能力 |
 | [`personal-dev-guard`](skills/personal-dev-guard/SKILL.md) | 在开发和 Review 时约束代码可读性、可维护性与补丁味 |
 | [`desktop`](skills/desktop/SKILL.md) | 在 macOS 上执行桌面自动化工作流 |
 
